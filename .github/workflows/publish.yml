@@ -111,5 +111,5 @@ jobs:
           printf '%s' "$GH_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
           helm push "$artifacts/kubewattch-$version.tgz" oci://ghcr.io/alvarorg14/charts
           cat config/crd/bases/*.yaml > "$artifacts/kubewattch-crds-$version.yaml"
-          (cd "$artifacts" && sha256sum *.tgz *.yaml > SHA256SUMS)
+          (cd "$artifacts" && sha256sum ./*.tgz ./*.yaml > SHA256SUMS)
           gh release upload "$TAG" "$artifacts"/* --clobber
