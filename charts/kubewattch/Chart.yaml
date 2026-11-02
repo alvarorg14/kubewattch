@@ -1,0 +1,6 @@
+apiVersion: v2
+name: kubewattch
+description: KubeWattch operator scaffold
+type: application
+version: 0.0.0
+appVersion: "0.0.0"
