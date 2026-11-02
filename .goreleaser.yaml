@@ -43,7 +43,8 @@ dockers_v2:
       org.opencontainers.image.source: https://github.com/alvarorg14/kubewattch
       org.opencontainers.image.version: "{{ .Tag }}"
       org.opencontainers.image.revision: "{{ .FullCommit }}"
+    # Snapshots load single-platform images, which cannot carry index annotations.
     annotations:
-      "index,manifest:org.opencontainers.image.source": https://github.com/alvarorg14/kubewattch
-      "index,manifest:org.opencontainers.image.version": "{{ .Tag }}"
-      "index,manifest:org.opencontainers.image.revision": "{{ .FullCommit }}"
+      "index,manifest:org.opencontainers.image.source": '{{ if not .IsSnapshot }}https://github.com/alvarorg14/kubewattch{{ end }}'
+      "index,manifest:org.opencontainers.image.version": '{{ if not .IsSnapshot }}{{ .Tag }}{{ end }}'
+      "index,manifest:org.opencontainers.image.revision": '{{ if not .IsSnapshot }}{{ .FullCommit }}{{ end }}'
