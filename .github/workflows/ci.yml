@@ -1,8 +1,9 @@
 name: CI
 on:
   pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
-  workflow_call:
 permissions:
   contents: read
 jobs:
@@ -35,6 +36,9 @@ jobs:
 
       - name: Check release metadata
         run: python3 hack/check-release.py
+
+      - name: Test the Release Please gate
+        run: python3 hack/test-release-gate.py
 
       - name: Run race-enabled tests
         run: make test GO_TEST_FLAGS=-race
@@ -204,3 +208,43 @@ jobs:
 
       - name: Verify release archive checksums
         run: (cd dist && sha256sum --check checksums.txt)
+
+  # Only update release PRs or create a release after this main commit passes CI.
+  release-please:
+    name: Manage releases with Release Please
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [go, manifests-and-chart, lint, kind-smoke, goreleaser]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    concurrency:
+      group: release-please-${{ github.repository }}
+      cancel-in-progress: false
+    steps:
+      - name: Check that main has not advanced
+        id: current
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # A slower, older CI run must not manage releases for a newer commit.
+          current_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
+          if [ "$current_sha" = "$GITHUB_SHA" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Skipping Release Please: main advanced to $current_sha"
+            echo "current=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create release app token
+        id: token
+        if: steps.current.outputs.current == 'true'
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - name: Create or update release
+        if: steps.current.outputs.current == 'true'
+        uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4
+        with:
+          token: ${{ steps.token.outputs.token }}

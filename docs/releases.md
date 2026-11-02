@@ -15,10 +15,10 @@ Install the hosted Renovate GitHub App for this repository. The checked-in confi
 ## Release flow
 
 1. Merge reviewed PRs using Conventional Commit titles, preferably by squash merge.
-2. The `Release` workflow validates `main` and uses Release Please to create or update a release PR.
-3. Review the version, chart metadata and changelog; merging the release PR creates the GitHub release and tag.
-4. The same workflow calls `Publish` with the resulting tag. It checks the tag and `VERSION`, then GoReleaser builds Linux amd64 and arm64 binaries, archives and checksums, pushes the multi-architecture operator image to GHCR, and uploads binary artifacts to the existing release without replacing its notes. Helm separately packages and pushes the OCI chart and attaches the CRD bundle and its checksums.
-5. If publication fails after the release exists, run the `Publish` workflow manually with that existing tag. Ensure the workflow token has package write access and configure GHCR package visibility as appropriate.
+2. `CI` runs on pull requests and pushes to `main`. After all CI jobs pass on a push to `main`, the Release Please job creates or updates a release PR. It skips stale CI runs when `main` has advanced, and does not run on PR or manual CI events. The separate Security workflow is not a dependency of this job.
+3. Review the version, chart metadata and changelog; merging the release PR starts CI again. After CI succeeds, Release Please creates the GitHub release and tag.
+4. The GitHub App token allows the published-release event to start the `Release` workflow. It publishes artifacts from the exact release tag. GoReleaser builds Linux amd64 and arm64 binaries, archives and checksums, pushes the multi-architecture operator image to GHCR, and uploads binary artifacts to the existing release without replacing its notes. Helm separately packages and pushes the OCI chart and attaches the CRD bundle and its checksums. Automatic publication handles stable releases; prereleases are skipped.
+5. If publication fails after the release exists, run the `Release` workflow manually from `main` with that existing stable release tag. Ensure the workflow token has package write access and configure GHCR package visibility as appropriate.
 
 `build/components.json` records the operator image and local-build Dockerfile; `.goreleaser.yaml` defines the actual release builds. Only the operator exists today. Add collector or reporter entries and corresponding GoReleaser builds only when their binaries and Dockerfiles exist. The GoReleaser Dockerfile copies prebuilt platform-specific binaries; the standard Dockerfiles remain available for local builds. `python3 hack/check-release.py` checks the current version and inventory.
 

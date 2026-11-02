@@ -22,6 +22,7 @@ For changes to automation or release metadata:
 ```sh
 python3 hack/test-renovate-managers.py
 python3 hack/test-pr-policy.py  # requires Node.js
+python3 hack/test-release-gate.py
 python3 hack/check-release.py
 actionlint .github/workflows/*.yml
 helm lint charts/kubewattch

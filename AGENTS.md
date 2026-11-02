@@ -44,6 +44,7 @@ make build
 python3 hack/test-renovate-managers.py
 python3 hack/test-pr-policy.py   # requires Node.js
 python3 hack/check-release.py
+python3 hack/test-release-gate.py
 ```
 
 `make test` downloads envtest binaries and starts a local API server; it does not use a cluster. `make test-e2e` requires Docker, Kind, Helm and kubectl, creates a uniquely named disposable cluster with its own temporary kubeconfig, and deletes it afterward. Never run `make install`, `make deploy`, `kubectl`, Helm installation or other cluster-changing commands against a user's cluster without explicit authorization. Do not modify the adjacent homelab repository.
@@ -54,6 +55,6 @@ Run Helm lint/template checks when chart or CRD changes. Check GoReleaser change
 
 Use Go formatting, small focused packages, clear error handling and meaningful tests. Update the relevant docs and examples when behavior changes. Contributors use Conventional Commit PR titles and exactly one policy label: `breaking-change`, `feature`, `enhancement`, `bug`, `dependencies`, `documentation`, `deprecations` or `ci`. Other labels are permitted. Labels are managed directly on GitHub, not synchronized by a workflow.
 
-Release Please maintains one release version in `VERSION`, `.release-please-manifest.json` and chart metadata. GoReleaser builds and publishes the operator archives and image from the release tag; the inventory currently contains only the operator. Helm publishes the chart and CRD bundle separately. Preserve Release Please release notes and retry behavior. Maintain the GitHub App token design, pinned Actions and least-privilege workflow permissions. Renovate handles dependency updates; preserve the coordinated Kubernetes dependency group and tool version annotations.
+CI runs on PRs and pushes to main; only a successful, current main push runs Release Please. A published stable GitHub Release triggers the Release workflow to publish artifacts; manual Release dispatch retries an existing tag. Security runs independently. Release Please maintains one release version in `VERSION`, `.release-please-manifest.json` and chart metadata. GoReleaser builds and publishes the operator archives and image from the release tag; the inventory currently contains only the operator. Helm publishes the chart and CRD bundle separately. Preserve Release Please release notes and retry behavior. Maintain the GitHub App token design, pinned Actions and least-privilege workflow permissions. Renovate handles dependency updates; preserve the coordinated Kubernetes dependency group and tool version annotations.
 
 Read [architecture](docs/architecture.md), [CRDs](docs/crds.md), [development](docs/development.md), [integrations](docs/integrations.md) and [releases](docs/releases.md) for details. Follow [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) and the [code of conduct](CODE_OF_CONDUCT.md).
