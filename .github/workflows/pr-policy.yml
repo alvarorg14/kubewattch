@@ -11,12 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Validate title and labels
-        env:
-          EVENT_PATH: ${{ github.event_path }}
         run: |
           node <<'JS'
           const fs = require('fs');
-          const pr = JSON.parse(fs.readFileSync(process.env.EVENT_PATH)).pull_request;
+          const pr = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH)).pull_request;
           // Only policy categories count; other labels such as autorelease are allowed.
           const labels = new Set(['breaking-change', 'feature', 'enhancement', 'bug', 'dependencies', 'documentation', 'deprecations', 'ci']);
           const count = pr.labels.filter(label => labels.has(label.name)).length;

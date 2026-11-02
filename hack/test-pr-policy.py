@@ -21,6 +21,6 @@ with tempfile.TemporaryDirectory() as directory:
     event = Path(directory) / 'event.json'
     for labels, title, expected in cases:
         event.write_text(json.dumps({'pull_request': {'labels': [{'name': x} for x in labels], 'title': title}}))
-        result = subprocess.run(['node', '-e', script], env={**os.environ, 'EVENT_PATH': str(event)}, capture_output=True, check=False)
+        result = subprocess.run(['node', '-e', script], env={**os.environ, 'GITHUB_EVENT_PATH': str(event)}, capture_output=True, check=False)
         assert (result.returncode == 0) == expected, (labels, title, result.stderr.decode())
 print(f'{len(cases)} PR policy cases passed')
