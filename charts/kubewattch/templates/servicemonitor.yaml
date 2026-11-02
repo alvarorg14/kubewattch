@@ -1,0 +1,46 @@
+{{- if .Values.metrics.serviceMonitor.enabled }}
+{{- $monitor := .Values.metrics.serviceMonitor }}
+{{- $_ := required "metrics.servingCertSecret is required when ServiceMonitor is enabled" .Values.metrics.servingCertSecret }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Release.Name }}-operator
+  labels:
+    {{- toYaml $monitor.labels | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kubewattch
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  endpoints:
+    - port: https
+      scheme: https
+      bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+      tlsConfig:
+        serverName: {{ .Release.Name }}-operator-metrics.{{ .Release.Namespace }}.svc
+        ca:
+          secret:
+            name: {{ required "metrics.serviceMonitor.caSecretName is required" $monitor.caSecretName | quote }}
+            key: {{ $monitor.caSecretKey | quote }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-kubewattch-metrics-reader
+rules:
+  - nonResourceURLs: ["/metrics"]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Name }}-kubewattch-metrics-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Release.Name }}-kubewattch-metrics-reader
+subjects:
+  - kind: ServiceAccount
+    name: {{ required "metrics.serviceMonitor.prometheusServiceAccount.name is required" $monitor.prometheusServiceAccount.name | quote }}
+    namespace: {{ required "metrics.serviceMonitor.prometheusServiceAccount.namespace is required" $monitor.prometheusServiceAccount.namespace | quote }}
+{{- end }}

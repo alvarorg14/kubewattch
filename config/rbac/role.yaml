@@ -1,0 +1,15 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+- apiGroups:
+  - energy.kubewattch.alvarorg14.github.io
+  resources:
+  - energydevices
+  - energyreports
+  verbs:
+  - get
+  - list
+  - watch

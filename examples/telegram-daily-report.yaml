@@ -1,0 +1,20 @@
+apiVersion: energy.kubewattch.alvarorg14.github.io/v1alpha1
+kind: EnergyReport
+metadata:
+  name: example-daily
+spec:
+  schedule: '0 8 * * *'
+  timeZone: Europe/Madrid
+  deviceSelector: {}
+  period: daily
+  pricing:
+    currency: EUR
+    pricePerKWh: '0.15'
+  destinations:
+    - name: telegram
+      type: telegram
+      telegram:
+        chatID: '123456'
+        botTokenSecretRef:
+          name: telegram-credentials
+          key: bot-token

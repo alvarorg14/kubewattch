@@ -1,0 +1,1 @@
+{"include":[{"name":"operator","dockerfile":"build/operator/Dockerfile","image":"ghcr.io/alvarorg14/kubewattch/operator"}]}

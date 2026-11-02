@@ -1,0 +1,206 @@
+name: CI
+on:
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  go:
+    name: Go build and tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+
+      - name: Check formatting
+        run: test -z "$(git ls-files -z '*.go' | xargs -0 -r gofmt -l)"
+
+      - name: Regenerate API code and manifests
+        run: make generate manifests
+
+      - name: Check generated files for changes
+        run: git diff --exit-code
+
+      - name: Run Go vet
+        run: go vet ./...
+
+      - name: Test PR policy
+        run: python3 hack/test-pr-policy.py
+
+      - name: Check release metadata
+        run: python3 hack/check-release.py
+
+      - name: Run race-enabled tests
+        run: make test GO_TEST_FLAGS=-race
+
+      - name: Build operator
+        run: go build -o bin/manager ./cmd
+
+  manifests-and-chart:
+    name: Kubernetes manifests and Helm chart
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+
+      # Makefile is the shared source of truth for tool versions.
+      - name: Read pinned tool versions
+        id: versions
+        run: make -s tool-versions >> "$GITHUB_OUTPUT"
+
+      - name: Set up Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
+        with:
+          version: ${{ steps.versions.outputs.helm }}
+
+      - name: Generate manifests and install Kustomize
+        run: make manifests generate kustomize
+
+      # Include untracked generated files as well as modified tracked files.
+      - name: Verify generated files
+        run: test -z "$(git status --porcelain -- api config/crd/bases config/rbac/role.yaml charts/kubewattch/crds)"
+
+      - name: Render Kustomize manifests
+        run: bin/kustomize build config/default >/tmp/kubewattch-kustomize.yaml
+
+      - name: Lint Helm chart
+        run: helm lint charts/kubewattch
+
+      - name: Render Helm manifests and CRDs
+        run: helm template test charts/kubewattch --include-crds >/tmp/kubewattch-chart.yaml
+
+      - name: Install Kubernetes schema validator
+        run: go install github.com/yannh/kubeconform/cmd/kubeconform@${{ steps.versions.outputs.kubeconform }}
+
+      # Envtest validates the CRDs; kubeconform's upstream schema set omits their kind.
+      - name: Validate rendered Kubernetes schemas
+        run: |
+          for version in 1.36.0 1.37.0; do
+            kubeconform -strict -summary -skip CustomResourceDefinition -kubernetes-version "$version" /tmp/kubewattch-kustomize.yaml /tmp/kubewattch-chart.yaml
+          done
+
+      - name: Render secure ServiceMonitor
+        run: >-
+          helm template test charts/kubewattch
+          --set metrics.serviceMonitor.enabled=true
+          --set metrics.servingCertSecret=metrics-cert
+          --set metrics.serviceMonitor.caSecretName=metrics-ca
+          --set metrics.serviceMonitor.prometheusServiceAccount.name=prometheus
+          --set metrics.serviceMonitor.prometheusServiceAccount.namespace=monitoring
+          >/tmp/kubewattch-monitor.yaml
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+
+      - name: Run Go lint
+        run: make lint
+
+      # Makefile is the shared source of truth for tool versions.
+      - name: Read pinned tool versions
+        id: versions
+        run: make -s tool-versions >> "$GITHUB_OUTPUT"
+
+      - name: Install workflow linter
+        run: go install github.com/rhysd/actionlint/cmd/actionlint@${{ steps.versions.outputs.actionlint }}
+
+      - name: Lint GitHub Actions workflows
+        run: actionlint .github/workflows/*.yml
+
+  kind-smoke:
+    name: Kind smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+
+      # Makefile is the shared source of truth for tool versions.
+      - name: Read pinned tool versions
+        id: versions
+        run: make -s tool-versions >> "$GITHUB_OUTPUT"
+
+      - name: Set up Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
+        with:
+          version: ${{ steps.versions.outputs.helm }}
+
+      - name: Install Kind
+        run: go install sigs.k8s.io/kind@${{ steps.versions.outputs.kind }}
+
+      # The script creates its own kubeconfig and deletes only its own cluster.
+      - name: Test a disposable Kind cluster
+        run: ./test/e2e/run.sh
+
+  goreleaser:
+    name: GoReleaser snapshot
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source and history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+
+      - name: Read pinned tool versions
+        id: versions
+        run: make -s tool-versions >> "$GITHUB_OUTPUT"
+
+      - name: Read operator image from inventory
+        id: inventory
+        run: echo "image=$(jq -er '.include[] | select(.name == "operator") | .image' build/components.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Validate GoReleaser configuration
+        uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7
+        with:
+          distribution: goreleaser
+          version: ${{ steps.versions.outputs.goreleaser }}
+          args: check
+        env:
+          OPERATOR_IMAGE: ${{ steps.inventory.outputs.image }}
+
+      # Snapshot mode builds local per-platform images and never pushes them.
+      - name: Set up QEMU for cross-platform image checks
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+      - name: Build release snapshot
+        uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7
+        with:
+          distribution: goreleaser
+          version: ${{ steps.versions.outputs.goreleaser }}
+          args: release --snapshot --clean
+        env:
+          OPERATOR_IMAGE: ${{ steps.inventory.outputs.image }}
+
+      - name: Verify release archive checksums
+        run: (cd dist && sha256sum --check checksums.txt)

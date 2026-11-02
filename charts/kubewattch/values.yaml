@@ -1,0 +1,22 @@
+image:
+  repository: ghcr.io/alvarorg14/kubewattch/operator
+  tag: ""
+  pullPolicy: IfNotPresent
+resources:
+  requests:
+    cpu: 10m
+    memory: 64Mi
+  limits:
+    memory: 128Mi
+leaderElection:
+  enabled: true
+metrics:
+  servingCertSecret: ""
+  serviceMonitor:
+    enabled: false
+    labels: {}
+    caSecretName: ""
+    caSecretKey: ca.crt
+    prometheusServiceAccount:
+      name: ""
+      namespace: ""

@@ -1,0 +1,23 @@
+name: PR policy
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review, labeled, unlabeled]
+permissions:
+  contents: read
+  pull-requests: read
+jobs:
+  policy:
+    name: PR title and label policy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate title and labels
+        run: |
+          node <<'JS'
+          const fs = require('fs');
+          const pr = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH)).pull_request;
+          // Only policy categories count; other labels such as autorelease are allowed.
+          const labels = new Set(['breaking-change', 'feature', 'enhancement', 'bug', 'dependencies', 'documentation', 'deprecations', 'ci']);
+          const count = pr.labels.filter(label => labels.has(label.name)).length;
+          if (count !== 1) throw Error('Exactly one policy label is required');
+          if (!/^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([\w./-]+\))?!?: .+/.test(pr.title)) throw Error('A Conventional Commit title is required');
+          JS

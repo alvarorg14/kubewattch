@@ -1,0 +1,49 @@
+name: Security
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '15 3 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  # Scan reachable Go vulnerabilities as well as filesystem dependencies and configuration.
+  govulncheck:
+    name: Go vulnerability scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+
+      - name: Read pinned tool versions
+        id: versions
+        run: make -s tool-versions >> "$GITHUB_OUTPUT"
+
+      - name: Install Go vulnerability scanner
+        run: go install golang.org/x/vuln/cmd/govulncheck@${{ steps.versions.outputs.govulncheck }}
+
+      - name: Scan Go dependencies
+        run: govulncheck ./...
+
+  trivy:
+    name: Dependency and configuration scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Scan dependencies and configuration
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,misconfig
+          severity: HIGH,CRITICAL
+          exit-code: '1'

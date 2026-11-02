@@ -1,0 +1,15 @@
+apiVersion: energy.kubewattch.alvarorg14.github.io/v1alpha1
+kind: EnergyDevice
+metadata:
+  name: example-tapo
+spec:
+  provider: tapo
+  tapo:
+    address: 192.0.2.1
+    emailSecretRef:
+      name: tapo-credentials
+      key: email
+    passwordSecretRef:
+      name: tapo-credentials
+      key: password
+  collectionIntervalSeconds: 30

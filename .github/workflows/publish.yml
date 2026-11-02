@@ -1,0 +1,115 @@
+name: Publish
+on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag, for example v0.1.0
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  # GoReleaser builds only components that have an explicit configuration.
+  components:
+    name: Resolve release components
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.inventory.outputs.image }}
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Read operator image from component inventory
+        id: inventory
+        run: |
+          # Fail if the inventory changes without a corresponding GoReleaser update.
+          jq -e '.include | length == 1 and .[0].name == "operator"' build/components.json >/dev/null
+          echo "image=$(jq -er '.include[0].image' build/components.json)" >> "$GITHUB_OUTPUT"
+
+  publish:
+    name: Publish release artifacts
+    needs: components
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Validate tag and existing release
+        env:
+          TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null
+
+      - name: Check out the release tag and history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+
+      - name: Verify release version
+        env:
+          TAG: ${{ inputs.tag }}
+        run: test "$(cat VERSION)" = "${TAG#v}"
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+
+      - name: Read pinned tool versions
+        id: versions
+        run: make -s tool-versions >> "$GITHUB_OUTPUT"
+
+      - name: Set up QEMU for cross-platform builds
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+      - name: Authenticate to GHCR
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and publish operator artifacts
+        uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7
+        with:
+          distribution: goreleaser
+          version: ${{ steps.versions.outputs.goreleaser }}
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GORELEASER_CURRENT_TAG: ${{ inputs.tag }}
+          OPERATOR_IMAGE: ${{ needs.components.outputs.image }}
+
+      - name: Set up Helm for chart publication
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
+        with:
+          version: ${{ steps.versions.outputs.helm }}
+
+      - name: Package and publish chart and CRDs
+        env:
+          TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Keep chart artifacts separate from GoReleaser's dist directory and checksums.
+          version="${TAG#v}"
+          artifacts="$RUNNER_TEMP/kubewattch-release"
+          mkdir -p "$artifacts"
+          helm package charts/kubewattch --version "$version" --app-version "$version" --destination "$artifacts"
+          printf '%s' "$GH_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          helm push "$artifacts/kubewattch-$version.tgz" oci://ghcr.io/alvarorg14/charts
+          cat config/crd/bases/*.yaml > "$artifacts/kubewattch-crds-$version.yaml"
+          (cd "$artifacts" && sha256sum ./*.tgz ./*.yaml > SHA256SUMS)
+          gh release upload "$TAG" "$artifacts"/* --clobber
