@@ -18,7 +18,7 @@ The manager creates namespace-local collector resources and an authentication bi
 
 ## Boundaries and safety
 
-`EnergyDevice` and `EnergyReport` are namespaced. Reports select devices in their own namespace, and Secret references point to Secrets in that namespace. The scaffold's types express these boundaries; future reconciliation must enforce them. The manager watches all namespaces, so installation requires cluster-level RBAC.
+`EnergyDevice` and `EnergyReport` are namespaced. Reports select devices in their own namespace, and Secret references point to Secrets in that namespace. The scaffold's types express these boundaries; future reconciliation must enforce them. The manager watches all namespaces, so installation requires cluster-level RBAC. It must create and update Services in device namespaces to expose collectors. This cluster-wide permission could redirect Service traffic if the manager were compromised; install the operator as a trusted cluster component. The manager does not have Service delete or patch permissions.
 
 Controller metrics and device energy metrics use separate authenticated HTTPS endpoints. Helm can render a ServiceMonitor with certificate verification, a trusted CA and an explicit Prometheus ServiceAccount binding. See the [chart guide](../charts/kubewattch/README.md).
 

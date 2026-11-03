@@ -20,8 +20,12 @@ rules:
   - apiGroups: [apps]
     resources: [deployments]
     verbs: [get, list, watch, create, update, patch, delete]
+  # Services must be managed in each EnergyDevice namespace.
   - apiGroups: [""]
-    resources: [services, serviceaccounts]
+    resources: [services]
+    verbs: [get, list, watch, create, update]
+  - apiGroups: [""]
+    resources: [serviceaccounts]
     verbs: [get, list, watch, create, update, patch, delete]
   - apiGroups: [rbac.authorization.k8s.io]
     resources: [roles, rolebindings, clusterrolebindings]

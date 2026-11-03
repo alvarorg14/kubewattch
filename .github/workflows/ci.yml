@@ -81,6 +81,9 @@ jobs:
       - name: Lint Helm chart
         run: helm lint charts/kubewattch
 
+      - name: Verify collector Service RBAC scope
+        run: go test ./internal/controller -run '^TestServiceWriteRBACScope$'
+
       - name: Render Helm manifests and CRDs
         run: helm template test charts/kubewattch --include-crds >/tmp/kubewattch-chart.yaml
 
