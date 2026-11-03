@@ -11,6 +11,30 @@ rules:
   - apiGroups: [energy.kubewattch.alvarorg14.github.io]
     resources: [energydevices, energyreports]
     verbs: [get, list, watch]
+  - apiGroups: [energy.kubewattch.alvarorg14.github.io]
+    resources: [energydevices/status, energydevices/finalizers]
+    verbs: [get, update, patch]
+  - apiGroups: [energy.kubewattch.alvarorg14.github.io]
+    resources: [energydevices]
+    verbs: [update, patch]
+  - apiGroups: [apps]
+    resources: [deployments]
+    verbs: [get, list, watch, create, update, patch, delete]
+  # Services must be managed in each EnergyDevice namespace.
+  - apiGroups: [""]
+    resources: [services]
+    verbs: [get, list, watch, create, update]
+  - apiGroups: [""]
+    resources: [serviceaccounts]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [rbac.authorization.k8s.io]
+    resources: [roles, rolebindings, clusterrolebindings]
+    verbs: [get, list, watch, create, update, patch, delete]
+  {{- if .Values.collector.serviceMonitor.enabled }}
+  - apiGroups: [monitoring.coreos.com]
+    resources: [servicemonitors]
+    verbs: [get, list, watch, create, update, patch, delete]
+  {{- end }}
   - apiGroups: [authentication.k8s.io]
     resources: [tokenreviews]
     verbs: [create]
@@ -100,6 +124,13 @@ spec:
         - name: manager
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default (printf "v%s" .Chart.AppVersion) }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: COLLECTOR_IMAGE
+              value: "{{ .Values.collector.image.repository }}:{{ .Values.collector.image.tag | default (printf "v%s" .Chart.AppVersion) }}"
+            - name: COLLECTOR_SERVICE_MONITOR_ENABLED
+              value: {{ .Values.collector.serviceMonitor.enabled | quote }}
+            - name: COLLECTOR_SERVICE_MONITOR_LABELS
+              value: "{{ range $key, $value := .Values.collector.serviceMonitor.labels }}{{ printf "%s=%s," $key $value }}{{ end }}"
           args:
             - --health-probe-bind-address=:8081
             - --metrics-bind-address=:8443
@@ -130,3 +161,27 @@ spec:
               drop: [ALL]
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+
+{{- if .Values.collector.serviceMonitor.enabled }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-kubewattch-collector-metrics-reader
+rules:
+  - nonResourceURLs: ["/metrics"]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Name }}-kubewattch-collector-metrics-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Release.Name }}-kubewattch-collector-metrics-reader
+subjects:
+  - kind: ServiceAccount
+    name: {{ required "collector.serviceMonitor.prometheusServiceAccount.name is required" .Values.collector.serviceMonitor.prometheusServiceAccount.name | quote }}
+    namespace: {{ required "collector.serviceMonitor.prometheusServiceAccount.namespace is required" .Values.collector.serviceMonitor.prometheusServiceAccount.namespace | quote }}
+{{- end }}

@@ -4,30 +4,23 @@ KubeWattch models smart energy devices and scheduled reports as Kubernetes resou
 
 ## Current implementation
 
-The controller-runtime manager registers the `energy.kubewattch.alvarorg14.github.io/v1alpha1` scheme, starts an `EnergyDevice` and an `EnergyReport` controller, exposes health probes and serves authenticated HTTPS controller metrics. It watches both namespaced resources across the cluster. Each reconciler currently returns without changing anything; no workers, schedules or status updates are created.
-
-The manager requires read/watch access to these CRDs, leader-election Lease access when enabled, and TokenReview/SubjectAccessReview permissions for secured metrics. It does not currently need device Secret access or permission to create workloads. Both CRDs expose status subresources for future use.
-
-## Intended data flow
+The manager watches namespaced devices and reports across the cluster. Each configured EnergyDevice receives a single collector Deployment, Service and restricted ServiceAccount. The collector reads a Tapo device and exposes authenticated HTTPS metrics. The report controller remains a no-op; scheduling and delivery are not implemented. Hardware validation of the collector remains pending.
 
 ```mermaid
 flowchart LR
-  CR[EnergyDevice / EnergyReport] --> O[Operator]
-  O -. future workload management .-> C[Collector]
-  C -. future device protocol .-> D[Smart device]
-  C -. future energy metrics .-> P[Prometheus]
-  O -. future schedule management .-> R[Reporter]
-  P -. future queries .-> R
-  R -. future delivery .-> T[Telegram or other destination]
+  D[EnergyDevice] --> O[Operator]
+  O --> C[Collector]
+  C --> T[Tapo P110]
+  P[Prometheus] --> C
 ```
 
-A future collector will handle provider authentication and polling and expose standardized power and energy metrics. A future reporter will query a metrics source, calculate consumption and costs for a calendar period, and deliver the result. The operator is expected to manage their Kubernetes workloads and report health through resource status. Exact workload and interface designs remain open until those features are built.
+The manager creates namespace-local collector resources and an authentication binding for each collector. It cleans up the cluster-scoped binding when a device is deleted. Collector serving certificates and credentials are supplied in Secrets in the device namespace.
 
 ## Boundaries and safety
 
-`EnergyDevice` and `EnergyReport` are namespaced. Reports select devices in their own namespace, and Secret references point to Secrets in that namespace. The scaffold's types express these boundaries; future reconciliation must enforce them. The manager watches all namespaces, so installation requires cluster-level RBAC.
+`EnergyDevice` and `EnergyReport` are namespaced. Reports select devices in their own namespace, and Secret references point to Secrets in that namespace. The scaffold's types express these boundaries; future reconciliation must enforce them. The manager watches all namespaces, so installation requires cluster-level RBAC. It must create and update Services in device namespaces to expose collectors. This cluster-wide permission could redirect Service traffic if the manager were compromised; install the operator as a trusted cluster component. The manager does not have Service delete or patch permissions.
 
-Controller metrics are distinct from the planned device energy metrics. The former are available over authenticated HTTPS; the latter do not exist yet. Helm can render a ServiceMonitor with certificate verification, a trusted CA and an explicit Prometheus ServiceAccount binding. See the [chart guide](../charts/kubewattch/README.md).
+Controller metrics and device energy metrics use separate authenticated HTTPS endpoints. Helm can render a ServiceMonitor with certificate verification, a trusted CA and an explicit Prometheus ServiceAccount binding. See the [chart guide](../charts/kubewattch/README.md).
 
 ## Compatibility and evolution
 

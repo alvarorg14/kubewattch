@@ -46,13 +46,28 @@ type TapoConfig struct {
 	PasswordSecretRef SecretKeyReference `json:"passwordSecretRef"`
 }
 
+// DeviceMetricsConfig configures the collector's secure metrics endpoint.
+type DeviceMetricsConfig struct {
+	// +kubebuilder:validation:MinLength=1
+	// ServingCertSecretName names a TLS Secret in the device namespace.
+	ServingCertSecretName string `json:"servingCertSecretName"`
+	// +optional
+	// CASecretRef identifies the trust anchor for the ServiceMonitor.
+	CASecretRef *SecretKeyReference `json:"caSecretRef,omitempty"`
+}
+
 // EnergyDeviceSpec defines the desired state of an energy device.
+// +kubebuilder:validation:XValidation:rule="self.provider != 'tapo' || has(self.tapo)",message="tapo configuration is required for provider tapo"
 type EnergyDeviceSpec struct {
 	// +kubebuilder:validation:Enum=tapo
 	// Provider identifies the device integration.
 	Provider string `json:"provider"`
+	// +optional
 	// Tapo configures the device connection.
-	Tapo TapoConfig `json:"tapo"`
+	Tapo *TapoConfig `json:"tapo,omitempty"`
+	// +optional
+	// Metrics configures the collector metrics endpoint.
+	Metrics *DeviceMetricsConfig `json:"metrics,omitempty"`
 	// +kubebuilder:default=30
 	// +kubebuilder:validation:Minimum=1
 	// +optional

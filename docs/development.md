@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-Use Go 1.27.3 or newer, Git, Make and Python 3. Node.js is needed for the PR-policy fixture test and Renovate validation. Helm and actionlint are needed for chart and workflow checks. Docker, Kind, Helm and kubectl are needed only for the disposable end-to-end test. Network access is required to download Go tools and envtest assets.
+Use Go 1.27.3 or newer, Git, Make and Python 3. Node.js is needed for the PR-policy fixture test and Renovate validation. Helm and actionlint are needed for chart and workflow checks. Docker, Kind, Helm, kubectl, curl and OpenSSL are needed only for the disposable end-to-end test. Network access is required to download Go tools and envtest assets.
 
 The Makefile pins controller-gen, Kustomize, golangci-lint and other CI tools. Its `tool-versions` target prints the versions used by workflows. The Go module version in `go.mod` controls the compiler version used by CI.
 
@@ -32,6 +32,6 @@ Run Renovate's `renovate-config-validator --strict` when its configuration chang
 
 ## End-to-end testing
 
-`make test-e2e` builds the manager image and creates a uniquely named Kind cluster using a temporary kubeconfig. It installs the chart, creates the example resources and checks metrics authentication. The script deletes the cluster on exit. It needs Docker and network access; never substitute a real cluster for this test.
+`make test-e2e` builds the manager image and creates a uniquely named Kind cluster using a temporary kubeconfig. It installs the chart, runs a synthetic Tapo device, and checks authenticated collector scraping with Prometheus. The script deletes the cluster on exit. It needs Docker and network access; never substitute a real cluster for this test.
 
 `make install`, `make deploy` and their inverse targets operate on the current kubeconfig and must only be used with explicit authorization for the target cluster. See [getting started](getting-started.md) for a manual installation and [contributing](../CONTRIBUTING.md) for PR conventions.

@@ -81,6 +81,9 @@ jobs:
       - name: Lint Helm chart
         run: helm lint charts/kubewattch
 
+      - name: Verify collector Service RBAC scope
+        run: go test ./internal/controller -run '^TestServiceWriteRBACScope$'
+
       - name: Render Helm manifests and CRDs
         run: helm template test charts/kubewattch --include-crds >/tmp/kubewattch-chart.yaml
 
@@ -189,6 +192,7 @@ jobs:
           args: check
         env:
           OPERATOR_IMAGE: ${{ steps.inventory.outputs.image }}
+          COLLECTOR_IMAGE: ghcr.io/alvarorg14/kubewattch/collector
 
       # Snapshot mode builds local per-platform images and never pushes them.
       - name: Set up QEMU for cross-platform image checks
@@ -205,6 +209,7 @@ jobs:
           args: release --snapshot --clean
         env:
           OPERATOR_IMAGE: ${{ steps.inventory.outputs.image }}
+          COLLECTOR_IMAGE: ghcr.io/alvarorg14/kubewattch/collector
 
       - name: Verify release archive checksums
         run: (cd dist && sha256sum --check checksums.txt)

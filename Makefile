@@ -65,6 +65,7 @@ GO_TEST_FLAGS ?=
 .PHONY: test
 test: manifests generate fmt vet setup-envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell "$(ENVTEST)" use $(ENVTEST_K8S_VERSION) --bin-dir "$(LOCALBIN)" -p path)" go test $(GO_TEST_FLAGS) $$(go list ./... | grep -v /e2e) -coverprofile cover.out
+	go test $(GO_TEST_FLAGS) ./test/e2e/tapo-simulator
 
 .PHONY: test-e2e
 test-e2e: ## Test the chart on a new disposable Kind cluster.
@@ -87,6 +88,7 @@ lint-config: golangci-lint ## Verify golangci-lint linter configuration
 .PHONY: build
 build: manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager cmd/main.go
+	go build -o bin/collector ./cmd/collector
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.

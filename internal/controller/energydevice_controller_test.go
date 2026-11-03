@@ -54,7 +54,7 @@ var _ = Describe("EnergyDevice Controller", func() {
 						Name:      resourceName,
 						Namespace: resourceNamespace,
 					},
-					Spec: energyv1alpha1.EnergyDeviceSpec{Provider: "tapo", Tapo: energyv1alpha1.TapoConfig{Address: "192.0.2.1", EmailSecretRef: energyv1alpha1.SecretKeyReference{Name: "credentials", Key: "email"}, PasswordSecretRef: energyv1alpha1.SecretKeyReference{Name: "credentials", Key: "password"}}},
+					Spec: energyv1alpha1.EnergyDeviceSpec{Provider: "tapo", Tapo: &energyv1alpha1.TapoConfig{Address: "192.0.2.1", EmailSecretRef: energyv1alpha1.SecretKeyReference{Name: "credentials", Key: "email"}, PasswordSecretRef: energyv1alpha1.SecretKeyReference{Name: "credentials", Key: "password"}}},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}

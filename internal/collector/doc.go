@@ -1,2 +1,2 @@
-// Package collector will contain device collection functionality.
+// Package collector implements device collection and Prometheus measurements.
 package collector

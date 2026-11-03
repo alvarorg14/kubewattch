@@ -1,0 +1,12 @@
+misconfigurations:
+  # The manager watches all namespaces and must create and update the
+  # collector Service in each EnergyDevice namespace. These two manifests
+  # define the same manager ClusterRole for Helm and Kustomize installs.
+  # KSV-0056 flags that necessary access as a potential traffic-interception
+  # risk. Limit this exception to these exact files; the operator is a
+  # cluster-wide trusted component, and no endpoint or network policy write
+  # access is granted.
+  - id: KSV-0056
+    paths:
+      - charts/kubewattch/templates/operator.yaml
+      - config/rbac/role.yaml

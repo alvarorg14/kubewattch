@@ -13,7 +13,7 @@ import (
 var _ = Describe("CRD schema", func() {
 	It("defaults the collection interval and rejects invalid devices", func() {
 		ctx := context.Background()
-		device := &energyv1alpha1.EnergyDevice{ObjectMeta: metav1.ObjectMeta{Name: "schema-device", Namespace: "default"}, Spec: energyv1alpha1.EnergyDeviceSpec{Provider: "tapo", Tapo: energyv1alpha1.TapoConfig{Address: "192.0.2.1", EmailSecretRef: energyv1alpha1.SecretKeyReference{Name: "credentials", Key: "email"}, PasswordSecretRef: energyv1alpha1.SecretKeyReference{Name: "credentials", Key: "password"}}}}
+		device := &energyv1alpha1.EnergyDevice{ObjectMeta: metav1.ObjectMeta{Name: "schema-device", Namespace: "default"}, Spec: energyv1alpha1.EnergyDeviceSpec{Provider: "tapo", Tapo: &energyv1alpha1.TapoConfig{Address: "192.0.2.1", EmailSecretRef: energyv1alpha1.SecretKeyReference{Name: "credentials", Key: "email"}, PasswordSecretRef: energyv1alpha1.SecretKeyReference{Name: "credentials", Key: "password"}}}}
 		Expect(k8sClient.Create(ctx, device)).To(Succeed())
 		DeferCleanup(func() { Expect(k8sClient.Delete(ctx, device)).To(Succeed()) })
 		Expect(device.Spec.CollectionIntervalSeconds).To(Equal(int32(30)))
@@ -29,6 +29,9 @@ var _ = Describe("CRD schema", func() {
 		invalid.Name = "invalid-secret-key"
 		invalid.Spec.Provider = "tapo"
 		invalid.Spec.Tapo.EmailSecretRef.Key = "invalid/key"
+		Expect(k8sClient.Create(ctx, invalid)).NotTo(Succeed())
+		invalid.Name = "missing-tapo"
+		invalid.Spec.Tapo = nil
 		Expect(k8sClient.Create(ctx, invalid)).NotTo(Succeed())
 	})
 	It("defaults the timezone and rejects invalid report fields", func() {
