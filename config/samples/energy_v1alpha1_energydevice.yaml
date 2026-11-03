@@ -13,3 +13,8 @@ spec:
       name: tapo-credentials
       key: password
   collectionIntervalSeconds: 30
+  metrics:
+    servingCertSecretName: collector-tls
+    caSecretRef:
+      name: collector-ca
+      key: ca.crt

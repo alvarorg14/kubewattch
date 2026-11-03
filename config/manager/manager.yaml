@@ -63,6 +63,9 @@ spec:
         args:
           - --leader-elect
           - --health-probe-bind-address=:8081
+        env:
+        - name: COLLECTOR_IMAGE
+          value: ghcr.io/alvarorg14/kubewattch/collector:dev
         image: controller:latest
         name: manager
         ports:

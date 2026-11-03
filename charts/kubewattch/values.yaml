@@ -20,3 +20,14 @@ metrics:
     prometheusServiceAccount:
       name: ""
       namespace: ""
+
+collector:
+  image:
+    repository: ghcr.io/alvarorg14/kubewattch/collector
+    tag: ""
+  serviceMonitor:
+    enabled: false
+    labels: {}
+    prometheusServiceAccount:
+      name: ""
+      namespace: ""

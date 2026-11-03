@@ -50,6 +50,37 @@ spec:
                 format: int32
                 minimum: 1
                 type: integer
+              metrics:
+                description: Metrics configures the collector metrics endpoint.
+                properties:
+                  caSecretRef:
+                    description: CASecretRef identifies the trust anchor for the ServiceMonitor.
+                    properties:
+                      key:
+                        description: Key is the required entry in the Secret.
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[A-Za-z0-9._-]+$
+                        type: string
+                      name:
+                        description: Name is the name of the Secret in the resource
+                          namespace.
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                  servingCertSecretName:
+                    description: ServingCertSecretName names a TLS Secret in the device
+                      namespace.
+                    minLength: 1
+                    type: string
+                required:
+                - servingCertSecretName
+                type: object
               provider:
                 description: Provider identifies the device integration.
                 enum:
@@ -109,8 +140,10 @@ spec:
                 type: object
             required:
             - provider
-            - tapo
             type: object
+            x-kubernetes-validations:
+            - message: tapo configuration is required for provider tapo
+              rule: self.provider != 'tapo' || has(self.tapo)
           status:
             description: status defines the observed state of EnergyDevice
             properties:

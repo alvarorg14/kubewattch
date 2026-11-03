@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       image: ${{ steps.inventory.outputs.image }}
+      collector_image: ${{ steps.inventory.outputs.collector_image }}
     steps:
       - name: Check out release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -29,8 +30,9 @@ jobs:
         id: inventory
         run: |
           # Fail if the inventory changes without a corresponding GoReleaser update.
-          jq -e '.include | length == 1 and .[0].name == "operator"' build/components.json >/dev/null
+          jq -e '.include | length == 2 and .[0].name == "operator" and .[1].name == "collector"' build/components.json >/dev/null
           echo "image=$(jq -er '.include[0].image' build/components.json)" >> "$GITHUB_OUTPUT"
+          echo "collector_image=$(jq -er '.include[1].image' build/components.json)" >> "$GITHUB_OUTPUT"
 
   publish:
     name: Publish release artifacts
@@ -91,6 +93,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           GORELEASER_CURRENT_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag }}
           OPERATOR_IMAGE: ${{ needs.components.outputs.image }}
+          COLLECTOR_IMAGE: ${{ needs.components.outputs.collector_image }}
 
       - name: Set up Helm for chart publication
         uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5

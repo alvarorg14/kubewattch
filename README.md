@@ -30,7 +30,7 @@
 
 ## 📖 Overview
 
-KubeWattch is an early-stage Kubernetes operator for monitoring smart-device energy consumption and reporting its cost. This repository currently contains API and controller scaffolding only.
+KubeWattch is an early-stage Kubernetes operator for monitoring smart-device energy consumption and reporting its cost. The operator can provision a Tapo collector; live hardware validation is still pending.
 
 ## 🤔 Why KubeWattch?
 
@@ -39,12 +39,13 @@ The project aims to bring device configuration, Prometheus monitoring and schedu
 ## ✨ Features and roadmap
 
 - Namespaced EnergyDevice and EnergyReport APIs with generated CRDs.
-- Operator manager and no-op controllers.
-- Planned: Tapo polling, Prometheus energy metrics, scheduled Telegram reports, additional providers and destinations.
+- Operator manager and Tapo collector reconciliation.
+- Tapo polling and authenticated Prometheus energy metrics; hardware validation is pending.
+- Planned: scheduled Telegram reports and additional providers and destinations.
 
 ## 🚀 Quick Start
 
-Install Go and run `make generate manifests` and `go build -o bin/manager ./cmd`. These commands do not connect to a cluster. The [getting started guide](docs/getting-started.md) describes chart installation with a locally built image. Integration examples describe planned behavior and do not collect energy data yet.
+Install Go and run `make generate manifests` and `go build -o bin/manager ./cmd`. These commands do not connect to a cluster. The [getting started guide](docs/getting-started.md) describes installation and collector configuration.
 
 ## 📡 Custom Resources
 
@@ -52,15 +53,15 @@ The API group is `energy.kubewattch.alvarorg14.github.io/v1alpha1`. See [CRDs](d
 
 ## ⚙️ Configuration
 
-The chart configures the manager image, resources, leader election and optional authenticated Prometheus ServiceMonitor. See the [chart guide](charts/kubewattch/README.md). The API examples are illustrative and the controllers do not manage devices yet.
+The chart configures the manager image, resources, leader election and optional authenticated Prometheus ServiceMonitor. See the [chart guide](charts/kubewattch/README.md). The device collector requires namespace-local credentials and a serving certificate.
 
 ## 🔧 How It Works
 
 ```mermaid
 flowchart LR
   CR[EnergyDevice and EnergyReport] --> Operator
-  Operator -. future .-> Collector
-  Collector -. future .-> Prometheus
+  Operator --> Collector
+  Collector --> Prometheus
   Prometheus -. future .-> Reporter
   Reporter -. future .-> Telegram
 ```

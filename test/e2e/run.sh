@@ -18,8 +18,10 @@ fi
 created=true
 kind create cluster --name "$name" --kubeconfig "$KUBECONFIG"
 docker build -f build/operator/Dockerfile -t kubewattch/operator:e2e .
-kind load docker-image kubewattch/operator:e2e --name "$name"
-helm install kw charts/kubewattch --set image.repository=kubewattch/operator --set image.tag=e2e --wait --timeout 180s
+docker build -f build/collector/Dockerfile -t kubewattch/collector:e2e .
+docker build -f test/e2e/tapo-simulator/Dockerfile -t kubewattch/tapo-simulator:e2e .
+kind load docker-image kubewattch/operator:e2e kubewattch/collector:e2e kubewattch/tapo-simulator:e2e --name "$name"
+helm install kw charts/kubewattch --set image.repository=kubewattch/operator --set image.tag=e2e --set collector.image.repository=kubewattch/collector --set collector.image.tag=e2e --wait --timeout 180s
 kubectl apply -f examples/tapo-device.yaml -f examples/telegram-daily-report.yaml
 kubectl get energydevices,energyreports
 kubectl create serviceaccount metrics-client
@@ -34,3 +36,5 @@ test "$(curl -sk -o /dev/null -w '%{http_code}' https://127.0.0.1:$port/metrics)
 test "$(curl -sk -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $token" https://127.0.0.1:$port/metrics)" = 200
 kill "$forward_pid" || true
 forward_pid=
+
+./test/e2e/collector.sh "$tmpdir"
