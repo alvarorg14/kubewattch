@@ -64,6 +64,8 @@ spec:
           - --leader-elect
           - --health-probe-bind-address=:8081
         env:
+        - name: REPORTER_IMAGE
+          value: ghcr.io/alvarorg14/kubewattch/reporter:dev
         - name: COLLECTOR_IMAGE
           value: ghcr.io/alvarorg14/kubewattch/collector:dev
         image: controller:latest

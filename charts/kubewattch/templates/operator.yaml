@@ -17,6 +17,21 @@ rules:
   - apiGroups: [energy.kubewattch.alvarorg14.github.io]
     resources: [energydevices]
     verbs: [update, patch]
+  - apiGroups: [energy.kubewattch.alvarorg14.github.io]
+    resources: [energyreports/status]
+    verbs: [get, update, patch]
+  - apiGroups: [batch]
+    resources: [cronjobs]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [batch]
+    resources: [jobs]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [coordination.k8s.io]
+    resources: [leases]
+    verbs: [get, list, watch, create, update, patch, delete]
   - apiGroups: [apps]
     resources: [deployments]
     verbs: [get, list, watch, create, update, patch, delete]
@@ -125,6 +140,14 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default (printf "v%s" .Chart.AppVersion) }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
+            - name: REPORTER_CPU_REQUEST
+              value: {{ .Values.reporter.resources.requests.cpu | quote }}
+            - name: REPORTER_MEMORY_REQUEST
+              value: {{ .Values.reporter.resources.requests.memory | quote }}
+            - name: REPORTER_MEMORY_LIMIT
+              value: {{ .Values.reporter.resources.limits.memory | quote }}
+            - name: REPORTER_IMAGE
+              value: "{{ .Values.reporter.image.repository }}:{{ .Values.reporter.image.tag | default (printf "v%s" .Chart.AppVersion) }}"
             - name: COLLECTOR_IMAGE
               value: "{{ .Values.collector.image.repository }}:{{ .Values.collector.image.tag | default (printf "v%s" .Chart.AppVersion) }}"
             - name: COLLECTOR_SERVICE_MONITOR_ENABLED

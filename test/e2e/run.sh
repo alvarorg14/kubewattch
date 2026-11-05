@@ -19,9 +19,11 @@ created=true
 kind create cluster --name "$name" --kubeconfig "$KUBECONFIG"
 docker build -f build/operator/Dockerfile -t kubewattch/operator:e2e .
 docker build -f build/collector/Dockerfile -t kubewattch/collector:e2e .
+docker build -f test/e2e/reporter.Dockerfile -t kubewattch/reporter:e2e .
+docker build -f test/e2e/report-simulator/Dockerfile -t kubewattch/report-simulator:e2e .
 docker build -f test/e2e/tapo-simulator/Dockerfile -t kubewattch/tapo-simulator:e2e .
-kind load docker-image kubewattch/operator:e2e kubewattch/collector:e2e kubewattch/tapo-simulator:e2e --name "$name"
-helm install kw charts/kubewattch --set image.repository=kubewattch/operator --set image.tag=e2e --set collector.image.repository=kubewattch/collector --set collector.image.tag=e2e --wait --timeout 180s
+kind load docker-image kubewattch/operator:e2e kubewattch/collector:e2e kubewattch/tapo-simulator:e2e kubewattch/reporter:e2e kubewattch/report-simulator:e2e --name "$name"
+helm install kw charts/kubewattch --set image.repository=kubewattch/operator --set image.tag=e2e --set collector.image.repository=kubewattch/collector --set collector.image.tag=e2e --set reporter.image.repository=kubewattch/reporter --set reporter.image.tag=e2e --wait --timeout 180s
 kubectl apply -f examples/tapo-device.yaml -f examples/telegram-daily-report.yaml
 kubectl get energydevices,energyreports
 kubectl create serviceaccount metrics-client
@@ -38,3 +40,4 @@ kill "$forward_pid" || true
 forward_pid=
 
 ./test/e2e/collector.sh "$tmpdir"
+./test/e2e/reporter.sh "$tmpdir"
