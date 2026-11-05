@@ -1,6 +1,6 @@
 # KubeWattch Helm chart
 
-The chart installs the operator manager, ServiceAccount, RBAC, metrics Service and the two CRDs. The operator provisions device collectors. Report scheduling remains unimplemented; Tapo hardware validation is pending.
+The chart installs the operator manager, ServiceAccount, RBAC, metrics Service and the two CRDs. The operator provisions device collectors. The operator also provisions scheduled Telegram reporters; Tapo hardware validation is pending.
 
 ## Install
 
@@ -22,6 +22,8 @@ See [getting started](../../docs/getting-started.md) for prerequisites and isola
 | `image.tag` | empty | Overrides the tag derived from `appVersion`. |
 | `image.pullPolicy` | `IfNotPresent` | Container image pull policy. |
 | `resources` | CPU and memory requests; memory limit | Manager resource configuration. |
+| `reporter.image.repository` / `.tag` | reporter image / release tag | Reporter image configuration. |
+| `reporter.resources` | CPU and memory requests; memory limit | Resources for each reporter Job. |
 | `leaderElection.enabled` | `true` | Enable controller-runtime leader election. |
 | `metrics.servingCertSecret` | empty | Optional Secret containing `tls.crt` and `tls.key` for the metrics server. |
 | `metrics.serviceMonitor.enabled` | `false` | Render a Prometheus Operator ServiceMonitor and metrics-reader binding. |

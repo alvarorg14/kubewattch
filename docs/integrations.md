@@ -1,6 +1,6 @@
 # Integrations and homelab findings
 
-The first planned use case is a Tapo P110 reporting instantaneous power and energy to Prometheus, followed by a daily Telegram summary with estimated cost. The current APIs model Tapo and Telegram configuration; the Tapo collector is implemented but requires real-device validation; Telegram delivery is not implemented. Shelly, MQTT, Discord and webhooks are possible future work.
+The first planned use case is a Tapo P110 reporting instantaneous power and energy to Prometheus, followed by a daily Telegram summary with estimated cost. The current APIs model Tapo and Telegram configuration; the Tapo collector is implemented but requires real-device validation; Telegram delivery is implemented using a scheduled reporter. Shelly, MQTT, Discord and webhooks are possible future work.
 
 ## Current homelab patterns
 
@@ -21,4 +21,4 @@ No homelab files, cluster resources, private addresses or credentials are includ
 
 ## Implementation status
 
-The device collector, secure metric endpoint and device reconciliation are implemented. Validate the P110 against its actual firmware and compare measurements with the existing exporter before migration. Prometheus-backed report calculation, scheduling and Telegram delivery remain future work.
+The device collector, secure metric endpoint and device reconciliation are implemented. Validate the P110 against its actual firmware and compare measurements with the existing exporter before migration. Prometheus-backed report calculation, scheduling and Telegram delivery are implemented. Validate report output and delivery before migrating an existing installation.

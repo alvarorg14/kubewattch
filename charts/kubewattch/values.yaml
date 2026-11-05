@@ -31,3 +31,14 @@ collector:
     prometheusServiceAccount:
       name: ""
       namespace: ""
+
+reporter:
+  image:
+    repository: ghcr.io/alvarorg14/kubewattch/reporter
+    tag: ""
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      memory: 256Mi

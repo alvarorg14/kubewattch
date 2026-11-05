@@ -3,6 +3,8 @@ kind: EnergyReport
 metadata:
   name: example-daily
 spec:
+  prometheus:
+    url: http://prometheus.monitoring.svc:9090
   schedule: '0 8 * * *'
   timeZone: Europe/Madrid
   deviceSelector: {}

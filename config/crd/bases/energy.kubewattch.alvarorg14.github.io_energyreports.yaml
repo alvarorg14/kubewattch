@@ -95,9 +95,11 @@ spec:
                       type: string
                   required:
                   - name
-                  - telegram
                   - type
                   type: object
+                  x-kubernetes-validations:
+                  - message: telegram configuration is required for type telegram
+                    rule: self.type != 'telegram' || has(self.telegram)
                 minItems: 1
                 type: array
                 x-kubernetes-list-map-keys:
@@ -173,10 +175,66 @@ spec:
                 - currency
                 - pricePerKWh
                 type: object
+              prometheus:
+                description: Prometheus identifies the metrics service used for this
+                  report.
+                properties:
+                  bearerTokenSecretRef:
+                    description: BearerTokenSecretRef identifies a same-namespace
+                      bearer token.
+                    properties:
+                      key:
+                        description: Key is the required entry in the Secret.
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[A-Za-z0-9._-]+$
+                        type: string
+                      name:
+                        description: Name is the name of the Secret in the resource
+                          namespace.
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                  caSecretRef:
+                    description: CASecretRef identifies a same-namespace trusted CA
+                      bundle.
+                    properties:
+                      key:
+                        description: Key is the required entry in the Secret.
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[A-Za-z0-9._-]+$
+                        type: string
+                      name:
+                        description: Name is the name of the Secret in the resource
+                          namespace.
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                  url:
+                    description: URL is the base URL of the Prometheus HTTP API.
+                    minLength: 1
+                    type: string
+                required:
+                - url
+                type: object
               schedule:
                 description: Schedule is a five-field cron expression.
                 pattern: ^[^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+$
                 type: string
+              suspend:
+                description: Suspend prevents scheduled executions.
+                type: boolean
               timeZone:
                 default: UTC
                 description: TimeZone is the intended IANA timezone for the schedule.
@@ -252,6 +310,49 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              lastRun:
+                description: LastRun records the latest execution and its delivery
+                  progress.
+                properties:
+                  destinations:
+                    description: Destinations records delivery progress.
+                    items:
+                      description: DestinationProgress records confirmed messages
+                        for one destination.
+                      properties:
+                        confirmedChunks:
+                          description: ConfirmedChunks is the number of sequentially
+                            confirmed messages.
+                          format: int32
+                          type: integer
+                        name:
+                          description: Name identifies the destination.
+                          type: string
+                      required:
+                      - confirmedChunks
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  generation:
+                    description: Generation is the report generation used by this
+                      execution.
+                    format: int64
+                    type: integer
+                  scheduledTime:
+                    description: ScheduledTime identifies the scheduled execution.
+                    format: date-time
+                    type: string
+                  state:
+                    description: State is the latest execution state.
+                    type: string
+                required:
+                - generation
+                - scheduledTime
+                - state
+                type: object
               lastScheduleTime:
                 description: LastScheduleTime is the latest scheduled execution time.
                 format: date-time

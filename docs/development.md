@@ -32,6 +32,6 @@ Run Renovate's `renovate-config-validator --strict` when its configuration chang
 
 ## End-to-end testing
 
-`make test-e2e` builds the manager image and creates a uniquely named Kind cluster using a temporary kubeconfig. It installs the chart, runs a synthetic Tapo device, and checks authenticated collector scraping with Prometheus. The script deletes the cluster on exit. It needs Docker and network access; never substitute a real cluster for this test.
+`make test-e2e` builds the manager image and creates a uniquely named Kind cluster using a temporary kubeconfig. It installs the chart, runs a synthetic Tapo device, checks authenticated collector scraping with Prometheus, and exercises report delivery and duplicate-run recovery against a simulated Telegram endpoint. The script deletes the cluster on exit. It needs Docker and network access; never substitute a real cluster for this test.
 
 `make install`, `make deploy` and their inverse targets operate on the current kubeconfig and must only be used with explicit authorization for the target cluster. See [getting started](getting-started.md) for a manual installation and [contributing](../CONTRIBUTING.md) for PR conventions.

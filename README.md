@@ -34,14 +34,14 @@ KubeWattch is an early-stage Kubernetes operator for monitoring smart-device ene
 
 ## 🤔 Why KubeWattch?
 
-The project aims to bring device configuration, Prometheus monitoring and scheduled consumption reports into a Kubernetes-native workflow. Its provider and destination integrations are planned for future iterations.
+The project aims to bring device configuration, Prometheus monitoring and scheduled consumption reports into a Kubernetes-native workflow. Tapo collection and Telegram reporting are implemented; additional providers and destinations are future work.
 
 ## ✨ Features and roadmap
 
 - Namespaced EnergyDevice and EnergyReport APIs with generated CRDs.
 - Operator manager and Tapo collector reconciliation.
 - Tapo polling and authenticated Prometheus energy metrics; hardware validation is pending.
-- Planned: scheduled Telegram reports and additional providers and destinations.
+- Scheduled Prometheus-backed Telegram reports; additional providers and destinations are planned.
 
 ## 🚀 Quick Start
 
@@ -62,8 +62,8 @@ flowchart LR
   CR[EnergyDevice and EnergyReport] --> Operator
   Operator --> Collector
   Collector --> Prometheus
-  Prometheus -. future .-> Reporter
-  Reporter -. future .-> Telegram
+  Prometheus --> Reporter
+  Reporter --> Telegram
 ```
 
 ## 💻 Local Development

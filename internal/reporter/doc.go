@@ -1,2 +1,2 @@
-// Package reporter will contain reporting functionality.
+// Package reporter calculates and delivers scheduled energy reports.
 package reporter
