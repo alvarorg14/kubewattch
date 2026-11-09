@@ -36,7 +36,7 @@ var _ = Describe("CRD schema", func() {
 	})
 	It("defaults the timezone and rejects invalid report fields", func() {
 		ctx := context.Background()
-		report := &energyv1alpha1.EnergyReport{ObjectMeta: metav1.ObjectMeta{Name: "schema-report", Namespace: "default"}, Spec: energyv1alpha1.EnergyReportSpec{Schedule: "0 8 * * *", Period: "daily", Pricing: energyv1alpha1.ElectricityPricing{Currency: "EUR", PricePerKWh: "0.15"}, Destinations: []energyv1alpha1.ReportDestination{{Name: "telegram", Type: "telegram", Telegram: energyv1alpha1.TelegramDestination{ChatID: "123", BotTokenSecretRef: energyv1alpha1.SecretKeyReference{Name: "telegram", Key: "token"}}}}}}
+		report := &energyv1alpha1.EnergyReport{ObjectMeta: metav1.ObjectMeta{Name: "schema-report", Namespace: "default"}, Spec: energyv1alpha1.EnergyReportSpec{Schedule: "0 8 * * *", Period: "daily", Pricing: energyv1alpha1.ElectricityPricing{Currency: "EUR", PricePerKWh: "0.15"}, Destinations: []energyv1alpha1.ReportDestination{{Name: "telegram", Type: "telegram", Telegram: &energyv1alpha1.TelegramDestination{ChatID: "123", BotTokenSecretRef: energyv1alpha1.SecretKeyReference{Name: "telegram", Key: "token"}}}}}}
 		Expect(k8sClient.Create(ctx, report)).To(Succeed())
 		DeferCleanup(func() { Expect(k8sClient.Delete(ctx, report)).To(Succeed()) })
 		Expect(report.Spec.TimeZone).To(Equal("UTC"))
@@ -44,6 +44,10 @@ var _ = Describe("CRD schema", func() {
 			func(r *energyv1alpha1.EnergyReport) { r.Spec.Schedule = "bad" },
 			func(r *energyv1alpha1.EnergyReport) { r.Spec.Pricing.PricePerKWh = "-1" },
 			func(r *energyv1alpha1.EnergyReport) { r.Spec.Period = "yearly" },
+			func(r *energyv1alpha1.EnergyReport) { r.Spec.Destinations[0].Telegram = nil },
+			func(r *energyv1alpha1.EnergyReport) {
+				r.Spec.Prometheus = &energyv1alpha1.PrometheusConfig{URL: "https://metrics.example", BearerTokenSecretRef: &energyv1alpha1.SecretKeyReference{Name: "credentials", Key: "bad/key"}}
+			},
 			func(r *energyv1alpha1.EnergyReport) {
 				r.Spec.Destinations = append(r.Spec.Destinations, r.Spec.Destinations[0])
 			},

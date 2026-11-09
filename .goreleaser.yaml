@@ -19,7 +19,19 @@ builds:
     goos: [linux]
     goarch: [amd64, arm64]
 
+  - id: reporter
+    main: ./cmd/reporter
+    binary: reporter
+    env: [CGO_ENABLED=0]
+    goos: [linux]
+    goarch: [amd64, arm64]
+
 archives:
+  - id: reporter
+    ids: [reporter]
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_reporter_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files: [LICENSE]
   - id: collector
     ids: [collector]
     formats: [tar.gz]
@@ -65,6 +77,21 @@ dockers_v2:
     ids: [collector]
     dockerfile: build/collector/Dockerfile.goreleaser
     images: ["{{ .Env.COLLECTOR_IMAGE }}"]
+    tags: ["{{ .Tag }}"]
+    platforms: [linux/amd64, linux/arm64]
+    labels:
+      org.opencontainers.image.source: https://github.com/alvarorg14/kubewattch
+      org.opencontainers.image.version: "{{ .Tag }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+    annotations:
+      "index,manifest:org.opencontainers.image.source": '{{ if not .IsSnapshot }}https://github.com/alvarorg14/kubewattch{{ end }}'
+      "index,manifest:org.opencontainers.image.version": '{{ if not .IsSnapshot }}{{ .Tag }}{{ end }}'
+      "index,manifest:org.opencontainers.image.revision": '{{ if not .IsSnapshot }}{{ .FullCommit }}{{ end }}'
+
+  - id: reporter
+    ids: [reporter]
+    dockerfile: build/reporter/Dockerfile.goreleaser
+    images: ["{{ .Env.REPORTER_IMAGE }}"]
     tags: ["{{ .Tag }}"]
     platforms: [linux/amd64, linux/arm64]
     labels:

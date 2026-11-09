@@ -7,6 +7,7 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - configmaps
   - serviceaccounts
   verbs:
   - create
@@ -39,6 +40,38 @@ rules:
   - update
   - watch
 - apiGroups:
+  - batch
+  resources:
+  - cronjobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - energy.kubewattch.alvarorg14.github.io
   resources:
   - energydevices
@@ -58,6 +91,7 @@ rules:
   - energy.kubewattch.alvarorg14.github.io
   resources:
   - energydevices/status
+  - energyreports/status
   verbs:
   - get
   - patch

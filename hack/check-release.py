@@ -15,11 +15,13 @@ assert root['release-type'] == 'simple' and root['version-file'] == 'VERSION'
 assert root['extra-files'] == [{'type': 'yaml', 'path': 'charts/kubewattch/Chart.yaml', 'jsonpath': '$[version,appVersion]'}]
 assert json.loads(Path('.release-please-manifest.json').read_text(encoding='utf-8')).get('.', version) == version
 inventory = json.loads(Path('build/components.json').read_text(encoding='utf-8'))['include']
-assert [entry['name'] for entry in inventory] == ['operator', 'collector']
+assert [entry['name'] for entry in inventory] == ['operator', 'collector', 'reporter']
 for entry in inventory:
     assert Path(entry['dockerfile']).is_file()
 assert Path('build/operator/Dockerfile.goreleaser').is_file()
 assert Path('build/collector/Dockerfile.goreleaser').is_file()
+assert Path('build/reporter/Dockerfile.goreleaser').is_file()
+assert '{{ .Env.REPORTER_IMAGE }}' in Path('.goreleaser.yaml').read_text(encoding='utf-8')
 assert '{{ .Env.COLLECTOR_IMAGE }}' in Path('.goreleaser.yaml').read_text(encoding='utf-8')
 assert '{{ .Env.OPERATOR_IMAGE }}' in Path('.goreleaser.yaml').read_text(encoding='utf-8')
 print(f'Release metadata and {len(inventory)} component verified at {version}')

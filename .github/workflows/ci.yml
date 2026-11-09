@@ -193,6 +193,7 @@ jobs:
         env:
           OPERATOR_IMAGE: ${{ steps.inventory.outputs.image }}
           COLLECTOR_IMAGE: ghcr.io/alvarorg14/kubewattch/collector
+          REPORTER_IMAGE: ghcr.io/alvarorg14/kubewattch/reporter
 
       # Snapshot mode builds local per-platform images and never pushes them.
       - name: Set up QEMU for cross-platform image checks
@@ -210,6 +211,7 @@ jobs:
         env:
           OPERATOR_IMAGE: ${{ steps.inventory.outputs.image }}
           COLLECTOR_IMAGE: ghcr.io/alvarorg14/kubewattch/collector
+          REPORTER_IMAGE: ghcr.io/alvarorg14/kubewattch/reporter
 
       - name: Verify release archive checksums
         run: (cd dist && sha256sum --check checksums.txt)
