@@ -1,12 +1,36 @@
 name: Bug report
-description: Report incorrect behavior
-title: 'bug: '
+description: Report incorrect behavior with sanitized diagnostic details
+title: 'fix: '
 labels: [bug]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Use the [private reporting form](https://github.com/alvarorg14/kubewattch/security/advisories/new)
+        for vulnerabilities or conduct reports. Remove credentials, tokens, private addresses,
+        kubeconfigs, and chat IDs from anything you post here.
+  - type: input
+    id: versions
+    attributes:
+      label: Versions and environment
+      description: Include the KubeWattch version or commit, Kubernetes version, and install method. Include the Tapo model and firmware if relevant.
+    validations:
+      required: true
   - type: textarea
     id: description
     attributes:
-      label: What happened?
-      description: Include reproduction steps, versions and sanitized logs.
+      label: Expected and actual behavior
     validations:
       required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include a minimal sanitized manifest or the relevant configuration.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized status, events, or logs
+      description: Follow the troubleshooting guide to identify the failing stage.

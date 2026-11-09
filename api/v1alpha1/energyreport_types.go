@@ -70,7 +70,7 @@ type PrometheusConfig struct {
 // EnergyReportSpec defines a scheduled energy report.
 type EnergyReportSpec struct {
 	// +optional
-	// Prometheus identifies the metrics service used for this report.
+	// Prometheus identifies the metrics service and is required to schedule a report.
 	Prometheus *PrometheusConfig `json:"prometheus,omitempty"`
 	// +optional
 	// Suspend prevents scheduled executions.
@@ -81,7 +81,7 @@ type EnergyReportSpec struct {
 	// +kubebuilder:default=UTC
 	// +kubebuilder:validation:Pattern=`^[A-Za-z0-9_+/-]+$`
 	// +optional
-	// TimeZone is the intended IANA timezone for the schedule.
+	// TimeZone is the IANA timezone for the schedule and report windows.
 	TimeZone string `json:"timeZone,omitempty"`
 	// DeviceSelector selects devices in the report namespace; an empty selector matches all.
 	DeviceSelector metav1.LabelSelector `json:"deviceSelector"`

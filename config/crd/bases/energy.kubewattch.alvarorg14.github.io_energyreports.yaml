@@ -176,8 +176,8 @@ spec:
                 - pricePerKWh
                 type: object
               prometheus:
-                description: Prometheus identifies the metrics service used for this
-                  report.
+                description: Prometheus identifies the metrics service and is required
+                  to schedule a report.
                 properties:
                   bearerTokenSecretRef:
                     description: BearerTokenSecretRef identifies a same-namespace
@@ -237,7 +237,8 @@ spec:
                 type: boolean
               timeZone:
                 default: UTC
-                description: TimeZone is the intended IANA timezone for the schedule.
+                description: TimeZone is the IANA timezone for the schedule and report
+                  windows.
                 pattern: ^[A-Za-z0-9_+/-]+$
                 type: string
             required:

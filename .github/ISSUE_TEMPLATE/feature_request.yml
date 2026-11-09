@@ -1,11 +1,17 @@
 name: Feature request
-description: Propose a feature
-title: 'feature: '
+description: Propose an improvement to KubeWattch
+title: 'feat: '
 labels: [enhancement]
 body:
   - type: textarea
     id: problem
     attributes:
-      label: Problem and proposed solution
+      label: Problem or use case
+      description: Describe what you are trying to do and what gets in the way.
     validations:
       required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the outcome you want and any alternatives you considered.

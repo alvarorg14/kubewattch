@@ -52,7 +52,7 @@ type DeviceMetricsConfig struct {
 	// ServingCertSecretName names a TLS Secret in the device namespace.
 	ServingCertSecretName string `json:"servingCertSecretName"`
 	// +optional
-	// CASecretRef identifies the trust anchor for the ServiceMonitor.
+	// CASecretRef identifies the trust anchor required when collector ServiceMonitors are enabled.
 	CASecretRef *SecretKeyReference `json:"caSecretRef,omitempty"`
 }
 
@@ -66,12 +66,12 @@ type EnergyDeviceSpec struct {
 	// Tapo configures the device connection.
 	Tapo *TapoConfig `json:"tapo,omitempty"`
 	// +optional
-	// Metrics configures the collector metrics endpoint.
+	// Metrics configures the collector metrics endpoint and is required to run a collector.
 	Metrics *DeviceMetricsConfig `json:"metrics,omitempty"`
 	// +kubebuilder:default=30
 	// +kubebuilder:validation:Minimum=1
 	// +optional
-	// CollectionIntervalSeconds is the planned polling interval in seconds.
+	// CollectionIntervalSeconds is the wait in seconds after a successful poll.
 	CollectionIntervalSeconds int32 `json:"collectionIntervalSeconds,omitempty"`
 }
 

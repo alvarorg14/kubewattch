@@ -1,10 +1,20 @@
+<!-- Use a Conventional Commit title, for example "docs: explain collector TLS setup". -->
+
 ### Purpose
 
-### Implementation
+<!-- Link the issue and describe the problem this PR addresses. -->
+
+### Changes
+
+<!-- Summarize the user-visible changes and any docs or examples updated. -->
 
 ### Validation
 
-### Reviewer focus and migration implications
+<!-- List the checks you ran and the results. Sanitize logs and configuration. -->
 
-- [ ] Exactly one policy label is applied
-- [ ] CRD and chart changes are documented
+### Upgrade impact
+
+<!-- Describe any CRD, Helm, or compatibility steps users need to take. -->
+
+- [ ] Exactly one policy label is applied or requested from a maintainer.
+- [ ] Relevant tests, docs, and examples are updated.

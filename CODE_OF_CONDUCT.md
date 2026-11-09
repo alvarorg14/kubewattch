@@ -37,7 +37,7 @@ This Code of Conduct applies within all community spaces, and also applies when 
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the community leaders responsible for enforcement at [GitHub private vulnerability reporting](https://github.com/alvarorg14/kubewattch/security/advisories/new). All complaints will be reviewed and investigated promptly and fairly.
+Report abusive, harassing, or otherwise unacceptable behavior to the maintainers through the repository's [private GitHub reporting form](https://github.com/alvarorg14/kubewattch/security/advisories/new). Begin the report title with `Code of Conduct` and include what happened, when and where it happened, and relevant links or screenshots if safe to share. All complaints will be reviewed and investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the reporter of any incident.
 
