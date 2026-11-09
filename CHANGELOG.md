@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.0](https://github.com/alvarorg14/kubewattch/compare/v0.1.0...v0.2.0) (2026-11-09)
+
+
+### Features
+
+* add scheduled Telegram energy reports ([#6](https://github.com/alvarorg14/kubewattch/issues/6)) ([42a0ca1](https://github.com/alvarorg14/kubewattch/commit/42a0ca14b4cdf8a970b1c1ceca634b08b0d78c9d))
+* collect Tapo energy metrics ([#4](https://github.com/alvarorg14/kubewattch/issues/4)) ([d33317c](https://github.com/alvarorg14/kubewattch/commit/d33317cca0a616f78d5d58d98823b9ad4e6a3a15))
+
 ## 0.1.0 (2026-11-02)
 
 
