@@ -1,46 +1,69 @@
 # KubeWattch Helm chart
 
-The chart installs the operator manager, ServiceAccount, RBAC, metrics Service and the two CRDs. The operator provisions device collectors. The operator also provisions scheduled Telegram reporters; Tapo hardware validation is pending.
-
-## Install
-
-Build an operator image and make it available to the target cluster, then select it explicitly:
+The chart installs the manager, its ServiceAccount and RBAC, its HTTPS metrics Service, and the two CRDs. The manager provisions collectors for devices and scheduled reporter Jobs for reports. The chart and images below become available upon publication of [v0.2.0](https://github.com/alvarorg14/kubewattch/releases/tag/v0.2.0).
 
 ```sh
-helm install kubewattch ./charts/kubewattch \
-  --namespace kubewattch-system --create-namespace \
-  --set image.repository=kubewattch/operator --set image.tag=dev
+helm upgrade --install kubewattch oci://ghcr.io/alvarorg14/charts/kubewattch \
+  --version 0.2.0 --namespace kubewattch-system --create-namespace --wait
 ```
 
-See [getting started](../../docs/getting-started.md) for prerequisites and isolated Kind testing. After releases are published, use the OCI chart and image for the desired release. The chart defaults to image tag `v<appVersion>` when `image.tag` is empty.
+See [Getting started](../../docs/getting-started.md) for resource configuration and [Development](../../docs/development.md) for source images and local chart installs.
 
 ## Values
 
+### Operator
+
 | Value | Default | Purpose |
 | --- | --- | --- |
-| `image.repository` | `ghcr.io/alvarorg14/kubewattch/operator` | Operator image repository. |
-| `image.tag` | empty | Overrides the tag derived from `appVersion`. |
-| `image.pullPolicy` | `IfNotPresent` | Container image pull policy. |
-| `resources` | CPU and memory requests; memory limit | Manager resource configuration. |
-| `reporter.image.repository` / `.tag` | reporter image / release tag | Reporter image configuration. |
-| `reporter.resources` | CPU and memory requests; memory limit | Resources for each reporter Job. |
-| `leaderElection.enabled` | `true` | Enable controller-runtime leader election. |
-| `metrics.servingCertSecret` | empty | Optional Secret containing `tls.crt` and `tls.key` for the metrics server. |
-| `metrics.serviceMonitor.enabled` | `false` | Render a Prometheus Operator ServiceMonitor and metrics-reader binding. |
-| `metrics.serviceMonitor.labels` | `{}` | Additional discovery labels for the ServiceMonitor. |
-| `metrics.serviceMonitor.caSecretName` / `caSecretKey` | empty / `ca.crt` | CA Secret and key in the ServiceMonitor namespace. |
-| `metrics.serviceMonitor.prometheusServiceAccount.name` / `.namespace` | empty | Identity authorized to read metrics. |
+| `image.repository` | `ghcr.io/alvarorg14/kubewattch/operator` | Manager image repository. |
+| `image.tag` | `""` | Image tag override. Empty uses `v<appVersion>`. |
+| `image.pullPolicy` | `IfNotPresent` | Manager image pull policy. |
+| `resources.requests.cpu` | `10m` | Manager CPU request. |
+| `resources.requests.memory` | `64Mi` | Manager memory request. |
+| `resources.limits.memory` | `128Mi` | Manager memory limit. |
+| `leaderElection.enabled` | `true` | Coordinate manager leadership using a Lease. |
 
-The Deployment runs as nonroot with a read-only root filesystem, no privilege escalation and all capabilities dropped. The manager watches resources cluster-wide. The chart creates namespace-scoped Lease permissions and cluster-scoped permissions for resource watches and metrics authentication.
+The manager runs as non-root with a read-only root filesystem. Its `resources` map accepts Kubernetes container resource requests and limits and applies to the manager Deployment.
 
-## Prometheus metrics
+### Manager metrics
 
-The manager's metrics endpoint is HTTPS with Kubernetes authentication and authorization. Without a supplied certificate the manager uses a self-signed certificate; that is useful for local exploration but does not provide a stable trust chain for Prometheus.
+| Value | Default | Purpose |
+| --- | --- | --- |
+| `metrics.servingCertSecret` | `""` | Serving TLS Secret name in the release namespace. |
+| `metrics.serviceMonitor.enabled` | `false` | Render a manager ServiceMonitor and metrics-reader RBAC. |
+| `metrics.serviceMonitor.labels` | `{}` | Labels used by Prometheus to discover the monitor. |
+| `metrics.serviceMonitor.caSecretName` | `""` | Secret with the trusted CA in the release namespace. |
+| `metrics.serviceMonitor.caSecretKey` | `ca.crt` | Key containing the trusted CA bundle. |
+| `metrics.serviceMonitor.prometheusServiceAccount.name` | `""` | ServiceAccount used by the scraping Prometheus Pods. |
+| `metrics.serviceMonitor.prometheusServiceAccount.namespace` | `""` | Namespace of that ServiceAccount. |
 
-To enable the ServiceMonitor, provide a serving-certificate Secret in the release namespace with a DNS SAN for `<release>-operator-metrics.<namespace>.svc`. Supply the CA Secret name/key in the same namespace and the Prometheus ServiceAccount name/namespace. The chart binds that account to the metrics-reader ClusterRole. Add labels required by Prometheus discovery; the inspected homelab uses `release: kube-prometheus-stack`. Certificate verification remains enabled.
+Without a supplied certificate, the manager uses a self-signed certificate. When enabling its ServiceMonitor, install the ServiceMonitor CRD and supply the serving certificate, CA, and Prometheus ServiceAccount. The serving Secret must have `tls.crt` and `tls.key` and the certificate must cover `<release>-operator-metrics.<namespace>.svc`.
 
-These are controller-runtime metrics. Collector metrics use separate Services and optional ServiceMonitors. Set `collector.serviceMonitor.enabled`, discovery labels and the Prometheus ServiceAccount, and configure the device TLS and CA Secret references.
+### Collector
 
-## CRDs and upgrades
+| Value | Default | Purpose |
+| --- | --- | --- |
+| `collector.image.repository` | `ghcr.io/alvarorg14/kubewattch/collector` | Image repository for collector Pods. |
+| `collector.image.tag` | `""` | Image tag override. Empty uses `v<appVersion>`. |
+| `collector.serviceMonitor.enabled` | `false` | Have the manager create a ServiceMonitor for each device and grant the Prometheus ServiceAccount scrape access. |
+| `collector.serviceMonitor.labels` | `{}` | Discovery labels for generated device monitors. |
+| `collector.serviceMonitor.prometheusServiceAccount.name` | `""` | Required when enabled. ServiceAccount used by the scraping Prometheus Pods. |
+| `collector.serviceMonitor.prometheusServiceAccount.namespace` | `""` | Required when enabled. Namespace of that ServiceAccount. |
 
-The chart's CRDs are copies of `config/crd/bases/`, synchronized by `make manifests`. Helm installs them when absent but does not upgrade or delete them. Review and apply a versioned CRD bundle separately before chart upgrades; back up custom resources and follow [release guidance](../../docs/releases.md). Removing a CRD deletes its custom resources.
+Serving TLS and the CA reference are configured on each `EnergyDevice`. When enabling collector monitors, install the ServiceMonitor CRD and configure Prometheus discovery for the device namespaces. Both monitor types use authenticated HTTPS with certificate verification. [Prometheus integration](../../docs/integrations.md#prometheus)
+
+### Reporter
+
+| Value | Default | Purpose |
+| --- | --- | --- |
+| `reporter.image.repository` | `ghcr.io/alvarorg14/kubewattch/reporter` | Image repository for reporter Jobs. |
+| `reporter.image.tag` | `""` | Image tag override. Empty uses `v<appVersion>`. |
+| `reporter.resources.requests.cpu` | `10m` | CPU request for each reporter container. |
+| `reporter.resources.requests.memory` | `64Mi` | Memory request for each reporter container. |
+| `reporter.resources.limits.memory` | `256Mi` | Memory limit for each reporter container. |
+
+Reporter resources must be positive Kubernetes quantities. Configure the schedule, tariff, Prometheus endpoint, and Telegram destinations per [EnergyReport](../../docs/crds.md#energyreport-spec).
+
+## CRD lifecycle
+
+The chart installs missing CRDs during initial installation. Apply the matching versioned CRD bundle separately before upgrading an existing deployment. The chart CRDs mirror the generated files in `config/crd/bases/`. See [Release and upgrade instructions](../../docs/releases.md#upgrade-a-deployment).

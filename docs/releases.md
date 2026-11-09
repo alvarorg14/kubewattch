@@ -2,28 +2,52 @@
 
 ## Versioning
 
-The repository has one release version for the operator and Helm chart. `VERSION`, the Release Please manifest and the chart's `version`/`appVersion` are kept in sync. The chart defaults to the image tag `v<appVersion>`. The Kubernetes API remains `v1alpha1` until API evolution warrants a separate version; it is not tied to product releases.
+A single product version covers the manager, collector, reporter, and Helm chart. Release Please keeps `VERSION`, the Release Please manifest, and the chart's `version` and `appVersion` in sync. When image tags are left empty, the chart uses `v<appVersion>`. The Kubernetes API version `v1alpha1` has its own lifecycle.
 
-The initial development version is `0.0.0`; the first configured release is `0.1.0`. Release Please examines Conventional Commits, maintains the changelog and opens a release PR. Its `ci` policy label satisfies the PR policy; release lifecycle labels are additional labels and do not count toward the one-category requirement. Maintainers manage labels directly on GitHub.
+The [v0.2.0 release](https://github.com/alvarorg14/kubewattch/releases/tag/v0.2.0) is the release referenced by the user guides. Its install links and artifacts become available upon publication. Use `main` for [source builds](development.md#install-images-built-from-source) and [snapshot validation](#validate-a-snapshot).
 
-## Repository setup
+## Upgrade a deployment
 
-Install a GitHub App with access to this repository and contents, pull requests and issues read/write permissions. Configure repository variable `RELEASE_APP_ID` and secret `RELEASE_APP_PRIVATE_KEY`. Enable creation of pull requests by GitHub Actions and set appropriate branch-protection checks. The GitHub App token allows release PRs to trigger CI. No credentials belong in the repository.
+Helm installs missing CRDs on first installation. Apply the matching CRD bundle separately before upgrading the chart. Review release notes, back up existing custom resources from all namespaces, and use the intended cluster context. Store the backup where only authorized users can access it. [Helm CRD handling](https://helm.sh/docs/chart_best_practices/custom_resource_definitions/)
 
-Install the hosted Renovate GitHub App for this repository. The checked-in configuration schedules routine updates on Monday mornings in Europe/Madrid, groups related updates, keeps major upgrades separate and disables automatic merging. Review Kubernetes and controller-runtime updates for compatibility. An update to a Kubebuilder tool version does not itself re-scaffold the project or change `PROJECT` provenance.
+The following example upgrades to `v0.2.0` once published.
+
+```sh
+kubectl get energydevices,energyreports --all-namespaces -o yaml > kubewattch-resources-backup.yaml
+curl --fail --silent --show-error --location --output kubewattch-crds-0.2.0.yaml \
+  https://github.com/alvarorg14/kubewattch/releases/download/v0.2.0/kubewattch-crds-0.2.0.yaml
+kubectl apply -f kubewattch-crds-0.2.0.yaml
+helm upgrade kubewattch oci://ghcr.io/alvarorg14/charts/kubewattch \
+  --version 0.2.0 --namespace kubewattch-system --wait
+```
+
+Pass your values file to `helm upgrade` if you use one. Check the manager rollout and the resources' status after upgrading. Devices from the scaffold release need a serving certificate to provision collectors. Reports need a Prometheus URL and working Telegram credentials before they can run. See [Getting started](getting-started.md) for the configuration. Deleting a CRD deletes its custom resources across all namespaces.
+
+## Maintainer setup
+
+Configure a GitHub App with contents, pull requests, and issues read/write permissions on the repository. Set `RELEASE_APP_ID` as a repository variable and `RELEASE_APP_PRIVATE_KEY` as a Secret. The App token lets Release Please PRs trigger CI and published releases trigger the Release workflow. Configure the repository's Actions and branch protection settings for this workflow.
+
+Install the hosted Renovate GitHub App. The checked-in configuration schedules routine updates on Monday mornings in Europe/Madrid, groups related updates, keeps major upgrades separate, and disables automatic merging. Review the Kubernetes and controller-runtime updates together. Tool updates leave `PROJECT` scaffold provenance tied to the original scaffold.
 
 ## Release flow
 
-1. Merge reviewed PRs using Conventional Commit titles, preferably by squash merge.
-2. `CI` runs on pull requests and pushes to `main`. After all CI jobs pass on a push to `main`, the Release Please job creates or updates a release PR. It skips stale CI runs when `main` has advanced, and does not run on PR or manual CI events. The separate Security workflow is not a dependency of this job.
-3. Review the version, chart metadata and changelog; merging the release PR starts CI again. After CI succeeds, Release Please creates the GitHub release and tag.
-4. The GitHub App token allows the published-release event to start the `Release` workflow. It publishes artifacts from the exact release tag. GoReleaser builds Linux amd64 and arm64 binaries, archives and checksums, pushes the multi-architecture operator, collector and reporter images to GHCR, and uploads binary artifacts to the existing release without replacing its notes. Helm separately packages and pushes the OCI chart and attaches the CRD bundle and its checksums. Automatic publication handles stable releases; prereleases are skipped.
-5. If publication fails after the release exists, run the `Release` workflow manually from `main` with that existing stable release tag. Ensure the workflow token has package write access and configure GHCR package visibility as appropriate.
+1. Merge reviewed PRs with Conventional Commit titles. Release Please uses the commit history and maintains the changelog and release PR. The release PR uses the `ci` policy label in addition to its lifecycle labels.
+2. CI runs on pull requests and pushes to `main`. Release Please runs after successful CI on the current `main` push. The Security workflow runs independently.
+3. Review the release PR's version, chart metadata, and changelog. Merge it to trigger CI and let Release Please create the GitHub release and tag.
+4. A published stable release triggers the Release workflow. GoReleaser uses the tagged source to build Linux amd64 and arm64 archives and checksums and push the three multi-architecture images to GHCR. Helm pushes the OCI chart and uploads the chart archive, CRD bundle, and `SHA256SUMS` to GitHub. `build/components.json` lists the images and local-build Dockerfiles.
+5. If artifact publication fails, run the Release workflow manually from `main` for the existing stable release tag. Check package write access and GHCR visibility. Matching artifacts can be replaced on retry and Release Please's notes are retained.
 
-`build/components.json` records the operator, collector and reporter images and local-build Dockerfiles; `.goreleaser.yaml` defines their release builds. The GoReleaser Dockerfile copies prebuilt platform-specific binaries; the standard Dockerfiles remain available for local builds. `python3 hack/check-release.py` checks the current version and inventory.
+## Validate a snapshot
 
-Validate the pinned GoReleaser configuration with `OPERATOR_IMAGE=ghcr.io/alvarorg14/kubewattch/operator COLLECTOR_IMAGE=ghcr.io/alvarorg14/kubewattch/collector REPORTER_IMAGE=ghcr.io/alvarorg14/kubewattch/reporter goreleaser check`. A non-publishing binary and archive snapshot can be built with `OPERATOR_IMAGE=ghcr.io/alvarorg14/kubewattch/operator COLLECTOR_IMAGE=ghcr.io/alvarorg14/kubewattch/collector REPORTER_IMAGE=ghcr.io/alvarorg14/kubewattch/reporter goreleaser release --snapshot --clean --skip=docker`. This skips the image build and works without Docker. CI runs a full non-publishing snapshot with Docker Buildx and QEMU, which checks the per-platform images as well. GoReleaser replaces existing matching binary artifacts on a retry while retaining Release Please release notes.
+Use the GoReleaser version printed by `make -s tool-versions` and the image repositories from the component inventory.
 
-## CRD upgrades
+```sh
+export OPERATOR_IMAGE=ghcr.io/alvarorg14/kubewattch/operator
+export COLLECTOR_IMAGE=ghcr.io/alvarorg14/kubewattch/collector
+export REPORTER_IMAGE=ghcr.io/alvarorg14/kubewattch/reporter
+goreleaser check
+goreleaser release --snapshot --clean --skip=docker
+python3 hack/check-release.py
+```
 
-The chart installs generated CRDs from `crds/` on first installation. Helm does not upgrade or delete these CRDs during subsequent releases or uninstallation. Review the versioned CRD bundle and compatibility guidance, back up custom resources, and apply an approved CRD upgrade separately before upgrading the chart. Deleting a CRD deletes its custom resources; do not use that as an upgrade procedure.
+The snapshot command builds local binaries and archives. CI runs a full snapshot with Docker Buildx and QEMU to check the per-platform images as well.

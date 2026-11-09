@@ -45,16 +45,18 @@ spec:
             properties:
               collectionIntervalSeconds:
                 default: 30
-                description: CollectionIntervalSeconds is the planned polling interval
-                  in seconds.
+                description: CollectionIntervalSeconds is the wait in seconds after
+                  a successful poll.
                 format: int32
                 minimum: 1
                 type: integer
               metrics:
-                description: Metrics configures the collector metrics endpoint.
+                description: Metrics configures the collector metrics endpoint and
+                  is required to run a collector.
                 properties:
                   caSecretRef:
-                    description: CASecretRef identifies the trust anchor for the ServiceMonitor.
+                    description: CASecretRef identifies the trust anchor required
+                      when collector ServiceMonitors are enabled.
                     properties:
                       key:
                         description: Key is the required entry in the Secret.

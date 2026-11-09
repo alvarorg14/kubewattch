@@ -4,9 +4,11 @@ metadata:
   name: example-daily
 spec:
   prometheus:
+    # Set the base URL the reporter Job can reach.
     url: http://prometheus.monitoring.svc:9090
   schedule: '0 8 * * *'
   timeZone: Europe/Madrid
+  # An empty selector includes all devices in this report's namespace.
   deviceSelector: {}
   period: daily
   pricing:
@@ -16,6 +18,7 @@ spec:
     - name: telegram
       type: telegram
       telegram:
+        # Replace this synthetic ID and keep the value quoted.
         chatID: '123456'
         botTokenSecretRef:
           name: telegram-credentials

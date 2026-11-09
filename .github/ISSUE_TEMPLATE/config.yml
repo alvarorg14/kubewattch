@@ -1,1 +1,8 @@
 blank_issues_enabled: false
+contact_links:
+  - name: Private security or conduct report
+    url: https://github.com/alvarorg14/kubewattch/security/advisories/new
+    about: Share vulnerabilities or Code of Conduct reports privately with maintainers.
+  - name: Troubleshooting guide
+    url: https://github.com/alvarorg14/kubewattch/blob/main/docs/troubleshooting.md
+    about: Diagnose collection, scraping, and report delivery before opening a bug.

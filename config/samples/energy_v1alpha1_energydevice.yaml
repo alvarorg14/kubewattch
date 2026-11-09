@@ -1,10 +1,12 @@
 apiVersion: energy.kubewattch.alvarorg14.github.io/v1alpha1
+# See docs/getting-started.md for the Secrets and collector certificate.
 kind: EnergyDevice
 metadata:
   name: example-tapo
 spec:
   provider: tapo
   tapo:
+    # Replace this documentation address with the plug's reachable hostname or IP.
     address: 192.0.2.1
     emailSecretRef:
       name: tapo-credentials

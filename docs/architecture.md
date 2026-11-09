@@ -1,36 +1,37 @@
 # Architecture
 
-KubeWattch models smart energy devices and scheduled reports as Kubernetes resources. The intended system separates Kubernetes lifecycle management, device communication and report delivery so that providers and destinations can evolve independently.
-
-## Current implementation
-
-The manager watches namespaced devices and reports across the cluster. Each configured EnergyDevice receives a single collector Deployment, Service and restricted ServiceAccount. The collector reads a Tapo device and exposes authenticated HTTPS metrics. The report controller provisions a CronJob and a restricted reporter identity. The reporter queries Prometheus and delivers Telegram messages. Hardware validation of the collector remains pending.
+KubeWattch separates Kubernetes reconciliation, device polling, and report execution. One manager watches namespaced `EnergyDevice` and `EnergyReport` resources across the cluster. The chart enables manager leader election by default.
 
 ```mermaid
 flowchart LR
-  D[EnergyDevice] --> O[Operator]
-  O --> C[Collector]
-  C --> T[Tapo P110]
-  P[Prometheus] --> C
-  O --> R[Reporter CronJob]
-  R --> P
-  R --> TG[Telegram]
+  ED[EnergyDevice] -->|reconciled by| M[Operator manager]
+  ER[EnergyReport] -->|reconciled by| M
+  M -->|manages Deployment and Service| C[Collector]
+  M -->|manages CronJob| J[CronJob]
+  J -->|starts| R[Reporter Job]
+  T[Tapo plug] -->|measurements on poll| C
+  C -->|metrics on scrape| P[Prometheus]
+  P -->|query results| R
+  R -->|messages| G[Telegram]
 ```
 
-The manager creates namespace-local collector resources and an authentication binding for each collector. It cleans up the cluster-scoped binding when a device is deleted. Collector serving certificates and credentials are supplied in Secrets in the device namespace.
+## Workloads and permissions
 
-## Boundaries and safety
+- Each device owns a single-replica collector Deployment, Service, ServiceAccount, Role, and RoleBinding in its namespace, plus an optional ServiceMonitor. The manager removes the collector's cluster-scoped authentication binding through a device finalizer. The collector uses Kubernetes authentication and authorization for HTTPS metrics and updates its own device status.
+- Each report owns a CronJob, ServiceAccount, Role, RoleBinding, Lease, and ConfigMap in its namespace. The reporter reads the report and its Job, lists devices in the same namespace, and writes report status and execution checkpoints.
+- Kubernetes mounts the referenced Secret keys into workloads. The workload identities have no Secret API access. Grant write access to the custom resources only to trusted users who may choose which namespace-local Secrets to mount and where workloads connect. The rendered report snapshot is stored in a ConfigMap, so namespace permissions should reflect the sensitivity of device usage data.
+- The manager is a trusted cluster component with cluster-wide reconciliation permissions, including permission to create and update Services. Manager and collector metrics are separate authenticated HTTPS endpoints. [Helm chart reference](../charts/kubewattch/README.md)
 
-`EnergyDevice` and `EnergyReport` are namespaced. Reports select devices in their own namespace, and Secret references point to Secrets in that namespace. The reporter enforces these boundaries during device selection and credential mounting. The manager watches all namespaces, so installation requires cluster-level RBAC. It must create and update Services in device namespaces to expose collectors. This cluster-wide permission could redirect Service traffic if the manager were compromised; install the operator as a trusted cluster component. The manager does not have Service delete or patch permissions.
+## Report windows and calculations
 
-Controller metrics and device energy metrics use separate authenticated HTTPS endpoints. Helm can render a ServiceMonitor with certificate verification, a trusted CA and an explicit Prometheus ServiceAccount binding. See the [chart guide](../charts/kubewattch/README.md).
+The reporter uses the Job's scheduled timestamp, even when the Job starts late. It covers the previous complete local day, Monday–Sunday week, or calendar month in `spec.timeZone`. Local window boundaries account for daylight-saving transitions.
 
-## Compatibility and evolution
+It queries Prometheus on a one-minute grid and integrates fresh, successful power samples over covered time to estimate kWh. Missing samples reduce coverage. Usage totals reflect observed energy and are marked partial when coverage is incomplete. Aggregate average and sampled peak use timestamps with observations from every selected device. The configured fixed tariff determines estimated cost.
 
-The `v1alpha1` API is an early contract and can change as integrations are designed. Its version is independent of the operator and Helm release version. CRD upgrades need explicit coordination because Helm does not upgrade CRDs in its `crds/` directory. See [CRDs](crds.md) and [releases](releases.md).
+The report also shows month-to-date consumption and the latest sampled load. Month and annual projections use the current month's average observed load once at least one hour has elapsed and each selected device has at least 95% month-to-date coverage.
 
-## Report execution
+## Scheduling and delivery
 
-Each report owns a CronJob, ServiceAccount, Role, RoleBinding, Lease and ConfigMap. The reporter reads the Job's scheduled timestamp (Kubernetes 1.32 or newer), selects devices in its namespace and queries Prometheus. A per-report Lease serializes execution; a snapshot and status checkpoints retain confirmed messages across retries. Only the mounted Secrets are available to the reporter; its identity has no Secret API permissions.
+The CronJob forbids overlapping runs and has a one-hour starting deadline. Each Job has a 30-minute active deadline and a retry limit of three. Kubernetes can miss schedules. The reporter requires a Job owned by the report CronJob and carrying the scheduled timestamp annotation added by Kubernetes 1.32 and newer. [Kubernetes CronJobs](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/)
 
-Telegram cannot guarantee exactly-once delivery. If a send succeeds but its response or checkpoint is lost, a retry may deliver a duplicate. Kubernetes CronJobs can skip schedules, and only the latest execution snapshot is retained.
+The reporter uses a per-report Lease to serialize execution. It stores the latest rendered snapshot in a ConfigMap and records confirmed Telegram message chunks in status so a retry can resume delivery. Telegram can receive a duplicate if it accepted a chunk and the response or checkpoint was lost. A report with partial or unavailable measurements can still be delivered. [Report status](crds.md#status)

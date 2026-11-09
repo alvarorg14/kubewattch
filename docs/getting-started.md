@@ -1,54 +1,109 @@
 # Getting started
 
-This guide builds and installs the operator, collector and reporter.
+This guide installs KubeWattch, collects a Tapo device's measurements into Prometheus, and sends a scheduled Telegram report. The chart, images, and example download links become available when [v0.2.0](https://github.com/alvarorg14/kubewattch/releases/tag/v0.2.0) is published. For builds and simulator tests from `main`, see [Development](development.md).
 
-## Build and test without a cluster
+## Prerequisites
 
-Install Go 1.27.3 or newer and Make, then run:
+- A Kubernetes cluster you administer with Linux amd64 or arm64 nodes, plus Helm 3, kubectl, and curl. Scheduled reporting requires Kubernetes 1.32 or newer for the scheduled timestamp on CronJob-created Jobs. [Kubernetes CronJobs](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/)
+- A reachable Tapo P110-series device with energy monitoring and the account email and password used to set it up. Live hardware validation is pending.
+- A Prometheus instance reachable from reporter Jobs. This walkthrough uses Prometheus Operator with the ServiceMonitor CRD installed. For a standalone server or a deployment that restricts file references in ServiceMonitors, see [Prometheus integration](integrations.md#prometheus).
+- A trusted certificate issuer and a Telegram bot with permission to send to the intended chat. Prepare your bot token and chat ID using the [Telegram setup](integrations.md#telegram).
 
-```sh
-make generate manifests
-make test
-make build
+The operator watches all namespaces and its chart installs cluster-scoped RBAC and CRDs. This example installs the operator in `kubewattch-system` and keeps the custom resources and their Secrets in `energy-demo`. Commands use your current kubeconfig context.
+
+## 1. Install the operator
+
+Create a file called `kubewattch-values.yaml` for collector scraping. Set the ServiceAccount to the one used by your Prometheus Pods and use labels that match the Prometheus resource's `serviceMonitorSelector`. Its `serviceMonitorNamespaceSelector` must include `energy-demo`.
+
+```yaml
+collector:
+  serviceMonitor:
+    enabled: true
+    labels:
+      release: prometheus-example
+    prometheusServiceAccount:
+      name: prometheus
+      namespace: monitoring
 ```
 
-`make test` downloads Kubernetes envtest binaries and starts a local API server and etcd. `make build` produces `bin/manager`, `bin/collector`, and `bin/reporter`. See [development](development.md) for the full validation suite.
-
-## Install a locally built image
-
-For an authorized Kubernetes cluster, install Docker, Helm and kubectl, and make sure your chosen image is available to the cluster:
-
 ```sh
-make docker-build IMG=kubewattch/operator:dev
-docker build -f build/collector/Dockerfile -t kubewattch/collector:dev .
-docker build -f build/reporter/Dockerfile -t kubewattch/reporter:dev .
-# Load or publish the image using the method appropriate for your cluster.
-helm install kubewattch ./charts/kubewattch \
-  --namespace kubewattch-system --create-namespace \
-  --set image.repository=kubewattch/operator --set image.tag=dev \
-  --set collector.image.repository=kubewattch/collector --set collector.image.tag=dev \
-  --set reporter.image.repository=kubewattch/reporter --set reporter.image.tag=dev
-kubectl -n kubewattch-system rollout status deployment/kubewattch-operator
+helm upgrade --install kubewattch oci://ghcr.io/alvarorg14/charts/kubewattch \
+  --version 0.2.0 --namespace kubewattch-system --create-namespace \
+  --values kubewattch-values.yaml --wait
+kubectl --namespace kubewattch-system rollout status deployment/kubewattch-operator
+kubectl create namespace energy-demo
 ```
 
-The chart installs the CRDs on first installation. An image tag named `dev` is illustrative; it must exist in the target cluster's image cache or registry. Release artifacts are not assumed to exist before the first release. Chart values, secure metrics configuration and CRD upgrade behavior are explained in the [chart guide](../charts/kubewattch/README.md).
+This enables the device monitors. The operator's separate controller-runtime monitor is described in the [chart reference](../charts/kubewattch/README.md).
 
-For an isolated local test, `make test-e2e` creates and deletes its own Kind cluster. It requires Docker and network access.
+## 2. Configure the device
 
-## Explore the API
+Save the Tapo email and password as separate local files with restricted permissions and no trailing newlines. Substitute your file paths in the Secret command. Keep credentials and generated private keys outside the repository.
 
-The [examples](../examples/) use documentation-only addresses and Secret references. Once the CRDs are installed, applying an example will create a Kubernetes object if its schema is valid. A device requires the referenced credentials and a metrics serving certificate to collect measurements. Reports require a reachable Prometheus endpoint and a namespace-local Telegram bot token Secret. The synthetic chat ID in the example must be replaced with the intended recipient. See [CRDs](crds.md) for fields, defaults and current validation limits.
+```sh
+kubectl --namespace energy-demo create secret generic tapo-credentials \
+  --from-file=email=/path/to/tapo-email \
+  --from-file=password=/path/to/tapo-password
+curl --fail --silent --show-error --location --output tapo-device.yaml \
+  https://raw.githubusercontent.com/alvarorg14/kubewattch/v0.2.0/examples/tapo-device.yaml
+```
 
-## Device metrics
+Edit `spec.tapo.address` in `tapo-device.yaml` to use a hostname or IP reachable from the collector Pod. Apply the resource first so that Kubernetes assigns its UID and you can determine the certificate's DNS name.
 
-Create a TLS Secret in the device namespace with `tls.crt` and `tls.key`, then set `spec.metrics.servingCertSecretName`. The certificate must cover `<collector-service>.<namespace>.svc`; the collector Service name is `kw-` followed by the EnergyDevice UID without hyphens. A wildcard certificate for the namespace may also be used. Configure `spec.metrics.caSecretRef` and the chart's `collector.serviceMonitor` values to create a ServiceMonitor. Prometheus needs the corresponding trusted CA and ServiceAccount permissions; certificate verification is always enabled.
+```sh
+kubectl --namespace energy-demo apply -f tapo-device.yaml
+device_uid=$(kubectl --namespace energy-demo get energydevice example-tapo -o jsonpath='{.metadata.uid}')
+collector="kw-$(printf '%s' "$device_uid" | tr -d '-')"
+printf 'Certificate DNS SAN: %s.energy-demo.svc\n' "$collector"
+```
 
-The metrics include power in watts and device-reported daily and monthly energy in joules. Divide energy by 3,600,000 for kWh. These energy readings reset according to the device's calendar and are gauges. Failed or stale polls omit energy and power readings and set collection success to zero.
+Issue a serving certificate for the printed DNS name. Use the serving certificate chain, private key, and trusted CA bundle from your issuer in these commands. The collector Pod waits for its TLS Secret to exist.
 
-For an opt-in read-only hardware test, provide `TAPO_HOST`, `TAPO_EMAIL` and `TAPO_PASSWORD` in the environment and run `KUBEWATTCH_HARDWARE_TEST=1 go test ./internal/collector -run TestTapoHardware`. Never commit these values. Hardware support must be validated against the actual firmware before relying on measurements.
+```sh
+kubectl --namespace energy-demo create secret tls collector-tls \
+  --cert=/path/to/collector-chain.pem --key=/path/to/collector-key.pem
+kubectl --namespace energy-demo create secret generic collector-ca \
+  --from-file=ca.crt=/path/to/collector-ca.pem
+kubectl --namespace energy-demo wait --for=condition=Provisioned energydevice/example-tapo --timeout=180s
+kubectl --namespace energy-demo wait --for=condition=Collecting energydevice/example-tapo --timeout=180s
+```
 
-## Scheduled reports
+In Prometheus, verify the collector target is up and run this query. A value of `1` confirms a fresh successful poll. View instantaneous power with `kubewattch_device_power_watts` using the same labels.
 
-Configure `spec.prometheus.url`, `schedule`, `timeZone`, `period`, pricing, selector and Telegram destination as shown in the [example](../examples/telegram-daily-report.yaml). The bot token Secret must be in the report namespace. For HTTPS Prometheus, optionally provide `spec.prometheus.caSecretRef`; a bearer token can be supplied using `spec.prometheus.bearerTokenSecretRef`. Use enough Prometheus retention to cover the requested period and the elapsed current month. The Kubernetes CronJob scheduled-time annotation requires Kubernetes 1.32 or newer.
+```promql
+kubewattch_device_collection_success{device_namespace="energy-demo",device="example-tapo"}
+```
 
-Check `status.conditions` and `status.lastRun` for provisioning and delivery progress. A report may be delivered with incomplete data, in which case it identifies unavailable or partial values. A retry after an ambiguous Telegram response can produce a duplicate.
+## 3. Configure a scheduled report
+
+Save the bot token in a restricted local file. Download the example, then set `spec.prometheus.url` to the Prometheus base URL reachable from the Job, `spec.destinations[0].telegram.chatID` to your chat ID as a string, and `spec.pricing` to your currency and tariff. For a secured Prometheus API, set the optional bearer token and CA references as described in the [API reference](crds.md#energyreport-spec).
+
+```sh
+kubectl --namespace energy-demo create secret generic telegram-credentials \
+  --from-file=bot-token=/path/to/telegram-bot-token
+curl --fail --silent --show-error --location --output telegram-daily-report.yaml \
+  https://raw.githubusercontent.com/alvarorg14/kubewattch/v0.2.0/examples/telegram-daily-report.yaml
+```
+
+The example schedules a daily report at 08:00 Europe/Madrid and selects all devices in `energy-demo`. Adjust `spec.schedule`, `spec.timeZone`, and `spec.deviceSelector` as needed. For a quick delivery check, you can use `'* * * * *'` and restore the intended schedule after the first message. Each eligible scheduled run can send a message. A new installation has little history, so an early delivery can show partial or unavailable values.
+
+```sh
+kubectl --namespace energy-demo apply -f telegram-daily-report.yaml
+kubectl --namespace energy-demo wait --for=condition=Provisioned energyreport/example-daily --timeout=180s
+kubectl --namespace energy-demo get cronjobs,jobs
+kubectl --namespace energy-demo get energyreport example-daily -o yaml
+```
+
+After the scheduled run, look for `Delivered=True` and `status.lastRun.state: Succeeded`, then check the chat. `DataComplete` reports data coverage separately from delivery. The reporter expects a Job created by the CronJob controller with its scheduled timestamp. See [Troubleshooting](troubleshooting.md) if either stage fails.
+
+## Upgrade or uninstall
+
+Follow the [CRD upgrade procedure](releases.md#upgrade-a-deployment) before upgrading the chart. On uninstall, delete the reports and devices that you want to retire while the manager is still running. This lets Kubernetes remove their owned workloads and lets the manager remove each collector's cluster-scoped authentication binding. Review resources in all namespaces before uninstalling a cluster-wide operator.
+
+```sh
+kubectl --namespace energy-demo delete energyreport example-daily
+kubectl --namespace energy-demo delete energydevice example-tapo --wait=true
+helm uninstall kubewattch --namespace kubewattch-system
+```
+
+Remove the example Secrets and namespaces separately if they are dedicated to this setup. Helm leaves the CRDs in place. Deleting a CRD also deletes all of its custom resources across the cluster. [Helm CRD handling](https://helm.sh/docs/chart_best_practices/custom_resource_definitions/)

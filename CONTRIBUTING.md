@@ -1,10 +1,12 @@
 # Contributing to KubeWattch
 
-Thanks for helping improve KubeWattch. Please follow the [code of conduct](CODE_OF_CONDUCT.md) and discuss substantial features or API changes in an issue before investing in a large implementation. Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+Use [GitHub Issues](https://github.com/alvarorg14/kubewattch/issues/new/choose) to report bugs or propose changes. For bugs, include the KubeWattch and Kubernetes versions, steps to reproduce, expected and actual behavior, and relevant status or logs. Redact credentials, private addresses, kubeconfigs, and chat IDs. Discuss substantial features or API changes in an issue before starting implementation.
 
-## Development
+See the [Security Policy](SECURITY.md) for private vulnerability reports and the [Code of Conduct](CODE_OF_CONDUCT.md) for participation and conduct reporting.
 
-Install Go 1.27.3 or newer and the tools listed in [development](docs/development.md). Create a topic branch from `main`, keep changes focused, and include tests and documentation appropriate to the change. Run the relevant checks before opening a PR:
+## Develop and validate
+
+Fork the repository and create a topic branch from `main`. Use Go 1.27.3 or newer and the tools in the [development guide](docs/development.md). Keep the change focused and update the tests, examples, and docs that describe the behavior.
 
 ```sh
 make generate manifests
@@ -13,12 +15,12 @@ make lint
 make build
 ```
 
-API and RBAC changes require regenerated DeepCopy code, CRDs, RBAC and chart CRD copies. Chart and workflow changes also require their lint and rendering checks. The disposable Kind test is available with `make test-e2e` when Docker is available. Never use another person's cluster or homelab for tests without explicit authorization.
+For API or RBAC changes, include the regenerated files. For chart or workflow changes, run the matching lint and render checks. The disposable Kind suite checks collector scraping and scheduled delivery. Use the [development guide](docs/development.md) for prerequisites and commands.
 
-## Pull requests
+## Open a pull request
 
-Use a [Conventional Commit](https://www.conventionalcommits.org/) title, for example `feat: add device discovery` or `fix: reject an invalid secret reference`. Describe the problem, behavior, validation and any upgrade impact in the PR template. Prefer squash merge so the title becomes the commit message consumed by Release Please.
+Use a [Conventional Commit](https://www.conventionalcommits.org/) title such as `feat: add device discovery`, `fix: reject an invalid secret reference`, or `docs: explain collector TLS setup`. Link the relevant issue and describe the change, how you validated it, and any upgrade implications. The title becomes the commit message when squash merged, so Release Please can use it to generate release notes.
 
-Apply exactly one policy label: `breaking-change`, `feature`, `enhancement`, `bug`, `dependencies`, `documentation`, `deprecations` or `ci`. Other labels, including Release Please lifecycle labels, are allowed. Maintainers manage labels directly in GitHub. Labels describe the change; commit messages determine release versions.
+Each PR must have exactly one policy label from `breaking-change`, `feature`, `enhancement`, `bug`, `dependencies`, `documentation`, `deprecations`, or `ci`. For documentation-only changes use `documentation`. If you lack label permissions, indicate the category in the PR so a maintainer can apply it. Other labels, including release lifecycle labels, may also be present.
 
-Renovate proposes dependency updates. Review Kubernetes modules and controller-runtime compatibility together, and keep pinned workflow Actions and development tools current. See [releases](docs/releases.md) for versioning and publication details.
+See [Releases](docs/releases.md) for versioning, publication, and dependency update conventions.
